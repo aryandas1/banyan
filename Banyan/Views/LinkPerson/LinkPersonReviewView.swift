@@ -1,0 +1,61 @@
+// LinkPersonReviewView.swift
+// Step 3 of the link flow: a summary of the connection about to be made,
+// with Save and a way back to the start (same shape as AddPersonReviewStepView).
+
+import SwiftUI
+
+struct LinkPersonReviewView: View {
+    let anchor: Person
+    let person: Person
+    let relationship: LinkRelationship
+    let onSave: () -> Void
+    let onChangeSomething: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Does this look right?")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            summaryCard
+
+            Spacer()
+
+            Button {
+                onSave()
+            } label: {
+                Text("Save")
+                    .font(.title3)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Change something") {
+                onChangeSomething()
+            }
+            .font(.body)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .padding(24)
+    }
+
+    private var summaryCard: some View {
+        Text("\(person.fullName) will be linked as \(anchor.firstName)'s \(relationshipWord).")
+            .font(.title3)
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+            )
+    }
+
+    private var relationshipWord: String {
+        switch relationship {
+        case .parent: "parent"
+        case .partner: "partner"
+        case .child: "child"
+        }
+    }
+}

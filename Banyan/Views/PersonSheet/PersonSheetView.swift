@@ -1,6 +1,7 @@
 // PersonSheetView.swift
 // The hub sheet for one person: header, actions, family, story, edit and delete.
 // Presented from TreeTabView; owns its own NavigationStack so it can push the edit form.
+// The body is a plain-style List — swipe-to-unlink on family rows only works in a List.
 
 import SwiftUI
 import SwiftData
@@ -11,18 +12,21 @@ struct PersonSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var sheetVM: PersonSheetViewModel
     @State private var showDeleteConfirmation = false
+    @State private var showLinkSheet = false
     @State private var deleteError: Error?
     @State private var pickerItem: PhotosPickerItem?
     @State private var photoImage: UIImage?
 
     private let isFocal: Bool      // hide "See their family" when already focal
     private let canDelete: Bool    // false for the tree owner — see TreeTabView
+    private let allPeople: [Person]   // candidates for the link sheet — from TreeTabView
     private let mutationService: TreeMutationServiceProtocol
     let onSeeFamily: (UUID) -> Void
     let onAddPerson: (AddPersonContext) -> Void
 
     init(
         person: Person,
+        allPeople: [Person],
         graphService: GraphServiceProtocol,
         mutationService: TreeMutationServiceProtocol,
         isFocal: Bool,
@@ -31,6 +35,7 @@ struct PersonSheetView: View {
         onAddPerson: @escaping (AddPersonContext) -> Void
     ) {
         _sheetVM = State(initialValue: PersonSheetViewModel(person: person, graphService: graphService))
+        self.allPeople = allPeople
         self.isFocal = isFocal
         self.canDelete = canDelete
         self.mutationService = mutationService
@@ -42,16 +47,29 @@ struct PersonSheetView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
+            List {
+                Section {
                     header
+                        .frame(maxWidth: .infinity)
                     actionButtons
-                    familySection
-                    storySection
-                    if canDelete { deleteButton }
                 }
-                .padding()
+                .listRowSeparator(.hidden)
+
+                familySection
+
+                Section {
+                    storySection
+                }
+                .listRowSeparator(.hidden)
+
+                if canDelete {
+                    Section {
+                        deleteButton
+                    }
+                    .listRowSeparator(.hidden)
+                }
             }
+            .listStyle(.plain)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -73,6 +91,14 @@ struct PersonSheetView: View {
                 Button("OK") { deleteError = nil }
             } message: {
                 Text(deleteError?.localizedDescription ?? "Something went wrong. Please try again.")
+            }
+            .sheet(isPresented: $showLinkSheet) {
+                LinkPersonView(
+                    anchor: person,
+                    allPeople: allPeople,
+                    mutationService: mutationService,
+                    onSave: { sheetVM.refresh() }
+                )
             }
         }
         .task(id: person.profilePhotoFilename) { await loadPhoto() }
@@ -140,6 +166,7 @@ struct PersonSheetView: View {
             addButton("Add \(person.firstName)'s parent") { onAddPerson(.parent(of: person)) }
             addButton("Add \(person.firstName)'s partner") { onAddPerson(.partner(of: person)) }
             addButton("Add \(person.firstName)'s child") { onAddPerson(.child(of: person)) }
+            addButton("Link to someone already in the tree") { showLinkSheet = true }
         }
     }
 
@@ -162,26 +189,48 @@ struct PersonSheetView: View {
         let hasFamily = !sheetVM.parents.isEmpty || !sheetVM.partners.isEmpty
             || !sheetVM.children.isEmpty || !sheetVM.siblings.isEmpty
         if hasFamily {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Family")
-                    .font(.headline)
+            Section {
                 relationshipRows(sheetVM.parents, label: "Parent")
                 relationshipRows(sheetVM.partners, label: "Partner")
                 relationshipRows(sheetVM.children, label: "Child")
-                relationshipRows(sheetVM.siblings, label: "Sibling")
+                // Siblings can't be unlinked: the shared union is the parents'
+                // union, so removing the sibling's link would detach them from
+                // their own parents, not just from this person.
+                relationshipRows(sheetVM.siblings, label: "Sibling", canUnlink: false)
+            } header: {
+                Text("Family")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .textCase(nil)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowSeparator(.hidden)
         }
     }
 
     @ViewBuilder
-    private func relationshipRows(_ people: [Person], label: String) -> some View {
+    private func relationshipRows(
+        _ people: [Person],
+        label: String,
+        canUnlink: Bool = true
+    ) -> some View {
         ForEach(people) { relative in
-            RelationshipRowView(person: relative, relationshipLabel: label) {
-                onSeeFamily(relative.id)
-                dismiss()
-            }
+            RelationshipRowView(
+                person: relative,
+                relationshipLabel: label,
+                onTap: {
+                    onSeeFamily(relative.id)
+                    dismiss()
+                },
+                onDelete: canUnlink ? { unlink(relative) } : nil
+            )
         }
+    }
+
+    /// Removes the connection between this person and `relative`, then refreshes
+    /// the family rows. No confirmation — re-linking restores the connection.
+    private func unlink(_ relative: Person) {
+        try? mutationService.unlink(relative, from: person, in: modelContext)
+        sheetVM.refresh()
     }
 
     // MARK: - Story

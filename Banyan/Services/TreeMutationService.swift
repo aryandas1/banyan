@@ -151,6 +151,103 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         try context.save()
     }
 
+    // MARK: - Link existing people (step 6)
+
+    /// Links an existing person as a parent of `anchorPerson`, joining the
+    /// existing single-parent union when one exists — the same union-reuse
+    /// rule as `addParent`, minus the person creation.
+    func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
+        let singleParentUnion = anchorPerson.links
+            .filter { $0.role == .child }
+            .compactMap(\.union)
+            .first { union in
+                union.links.filter { $0.role == .partner }.count == 1
+            }
+
+        if let singleParentUnion {
+            makeLink(person: person, union: singleParentUnion, role: .partner, in: context)
+        } else {
+            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(union)
+            makeLink(person: anchorPerson, union: union, role: .child, in: context)
+            makeLink(person: person, union: union, role: .partner, in: context)
+        }
+
+        try context.save()
+    }
+
+    /// Links two existing people as partners in a new union.
+    func linkAsPartner(_ person: Person, with anchorPerson: Person, in context: ModelContext) throws {
+        let union = Union(treeId: anchorPerson.treeId, type: .unknown)
+        context.insert(union)
+        makeLink(person: anchorPerson, union: union, role: .partner, in: context)
+        makeLink(person: person, union: union, role: .partner, in: context)
+
+        try context.save()
+    }
+
+    /// Links an existing person as a child of `anchorPerson`, joining the first
+    /// union where `anchorPerson` is already a partner when one exists — the
+    /// same union-reuse rule as `addChild`, minus the person creation.
+    func linkAsChild(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
+        let existingPartnerUnion = anchorPerson.links
+            .filter { $0.role == .partner }
+            .compactMap(\.union)
+            .first
+
+        if let existingPartnerUnion {
+            makeLink(person: person, union: existingPartnerUnion, role: .child, in: context)
+        } else {
+            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(union)
+            makeLink(person: anchorPerson, union: union, role: .partner, in: context)
+            makeLink(person: person, union: union, role: .child, in: context)
+        }
+
+        try context.save()
+    }
+
+    /// Removes `person`'s links to every union shared with `anchorPerson`,
+    /// deleting outright any union that afterwards no longer relates at least
+    /// two people (no partners left, or a single partner with no children).
+    func unlink(_ person: Person, from anchorPerson: Person, in context: ModelContext) throws {
+        let personUnionIds = Set(person.links.compactMap(\.union?.id))
+        var seen = Set<UUID>()
+        let sharedUnions = anchorPerson.links
+            .compactMap(\.union)
+            .filter { personUnionIds.contains($0.id) && seen.insert($0.id).inserted }
+
+        // Decide each union's fate BEFORE deleting anything: cascade-deleted
+        // links linger in the in-memory `links` arrays until the context saves,
+        // so counting afterwards would still see the links just removed — the
+        // same staleness `deletePerson` works around.
+        var linksToDelete: [PersonUnionLink] = []
+        var unionsToDelete: [Union] = []
+
+        for union in sharedUnions {
+            let remainingLinks = union.links.filter { $0.person?.id != person.id }
+            let remainingPartners = remainingLinks.filter { $0.role == .partner }.count
+            let remainingChildren = remainingLinks.count - remainingPartners
+            let survives = remainingPartners >= 2
+                || (remainingPartners == 1 && remainingChildren >= 1)
+
+            if survives {
+                linksToDelete.append(contentsOf: union.links.filter { $0.person?.id == person.id })
+            } else {
+                unionsToDelete.append(union)   // cascades person's link with it
+            }
+        }
+
+        for link in linksToDelete {
+            context.delete(link)
+        }
+        for union in unionsToDelete {
+            context.delete(union)   // cascades the union's remaining links
+        }
+
+        try context.save()
+    }
+
     // MARK: - Helpers
 
     /// Builds the new Person with trimmed names. Not yet inserted into a context.
