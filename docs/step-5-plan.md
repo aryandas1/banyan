@@ -1,5 +1,11 @@
 # Banyan — Step 5 handoff & plan
 
+> **STATUS: COMPLETE.** Person sheet built on `feat/step5`; `xcodegen` clean, zero warnings,
+> **58 tests green** (46 + 12 new). Two intentional deviations from the spec, both correctness
+> fixes for SwiftData in-memory cascade staleness — see `TreeMutationService.deletePerson` and
+> the `deletePersonPrunesOrphanedParentUnion` test. Known display gaps surfaced during testing
+> are recorded in `docs/known-gaps.md`. Not yet committed/merged (user commits manually).
+
 Hands off context from the steps 1–4 build so a fresh Claude Code session can execute step 5.
 Read this **and** the step-5 spec at `docs/claude-code-prompt-step-5-person-sheet.md`, and
 `CLAUDE.md` (authoritative conventions), before writing code.

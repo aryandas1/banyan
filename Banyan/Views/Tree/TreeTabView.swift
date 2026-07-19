@@ -71,9 +71,10 @@ struct TreeTabView: View {
                     refreshSnapshot()
                 }
             }
-            .sheet(item: $selectedPerson, onDismiss: presentPendingAddIfNeeded) { person in
+            .sheet(item: $selectedPerson, onDismiss: handlePersonSheetDismiss) { person in
                 PersonSheetView(
                     person: person,
+                    allPeople: treePeople,
                     graphService: graphService,
                     mutationService: mutationService,
                     isFocal: person.id == focalPersonId,
@@ -117,6 +118,15 @@ struct TreeTabView: View {
             treeViewModel.resetToRoot(ownerId: ownerPersonId)   // focal was deleted
             setUpIfPossible()
         }
+    }
+
+    /// After the person sheet closes: refresh the tree snapshot, then present any
+    /// deferred "Add …". The refresh matters for link/unlink — they change
+    /// relationships without changing the people count, so the
+    /// `onChange(of: allPeople.count)` path never fires for them.
+    private func handlePersonSheetDismiss() {
+        refreshSnapshot()
+        presentPendingAddIfNeeded()
     }
 
     /// After the person sheet closes, present any "Add …" it requested. Deferring to

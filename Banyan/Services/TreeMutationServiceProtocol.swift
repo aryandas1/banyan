@@ -55,4 +55,26 @@ protocol TreeMutationServiceProtocol {
     /// belonged to are then inspected and deleted if no partner link remains
     /// (e.g. a child's sole parent union once that parent is gone).
     func deletePerson(_ person: Person, in context: ModelContext) throws
+
+    /// Links an already-existing person as a parent of `anchorPerson`.
+    /// Same union-reuse rule as `addParent`: joins the existing single-parent
+    /// union when one exists, otherwise creates a new union. No Person is created.
+    func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws
+
+    /// Links two already-existing people as partners in a new union.
+    /// No Person is created.
+    func linkAsPartner(_ person: Person, with anchorPerson: Person, in context: ModelContext) throws
+
+    /// Links an already-existing person as a child of `anchorPerson`.
+    /// Same union-reuse rule as `addChild`: joins the first union where
+    /// `anchorPerson` is a partner when one exists, otherwise creates a new
+    /// union with `anchorPerson` as its sole partner. No Person is created.
+    func linkAsChild(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws
+
+    /// Removes the connection between `person` and `anchorPerson` by deleting
+    /// `person`'s links to every union the two share. A union that afterwards no
+    /// longer relates at least two people — no partners left, or a single
+    /// partner with no children — is deleted with it. Does nothing when the two
+    /// share no union.
+    func unlink(_ person: Person, from anchorPerson: Person, in context: ModelContext) throws
 }
