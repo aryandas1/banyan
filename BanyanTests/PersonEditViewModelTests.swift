@@ -1,0 +1,145 @@
+// PersonEditViewModelTests.swift
+// The edit form's derived state and its write-back to a Person.
+
+import Foundation
+import Testing
+@testable import Banyan
+
+@MainActor
+@Suite("PersonEditViewModel")
+struct PersonEditViewModelTests {
+
+    @Test func seedsFieldsFromPerson() throws {
+        // Given a person with a name, sex, birth date and bio
+        let person = Person(
+            treeId: UUID(),
+            firstName: "Ravi",
+            lastName: "Das",
+            sex: .male,
+            birthDate: PartialDate(year: 1960, month: 3),
+            bio: "A gardener."
+        )
+
+        // When the edit view model is seeded from them
+        let vm = PersonEditViewModel(person: person)
+
+        // Then every editable field mirrors the person
+        #expect(vm.firstName == "Ravi")
+        #expect(vm.lastName == "Das")
+        #expect(vm.sex == .male)
+        #expect(vm.birthYearText == "1960")
+        #expect(vm.birthMonthText == "3")
+        #expect(vm.isDeceased == false)
+        #expect(vm.bio == "A gardener.")
+    }
+
+    @Test func canSaveIsFalseWhenFirstNameBlank() throws {
+        // Given an edit form
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+
+        // When the first name is empty or only whitespace
+        vm.firstName = ""
+        #expect(vm.canSave == false)
+        vm.firstName = "   "
+
+        // Then saving is disallowed
+        #expect(vm.canSave == false)
+    }
+
+    @Test func canSaveIsTrueWithFirstName() throws {
+        // Given an edit form
+        let person = Person(treeId: UUID(), firstName: "")
+        let vm = PersonEditViewModel(person: person)
+
+        // When the first name is present
+        vm.firstName = "Ravi"
+
+        // Then saving is allowed
+        #expect(vm.canSave == true)
+    }
+
+    @Test func birthDateNilWhenYearTextEmpty() throws {
+        // Given an edit form with no birth year
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+        vm.birthYearText = ""
+
+        // Then no birth date is derived
+        #expect(vm.birthDate == nil)
+    }
+
+    @Test func birthDateIncludesMonthWhenProvided() throws {
+        // Given an edit form with a year and month
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+        vm.birthYearText = "1960"
+        vm.birthMonthText = "3"
+
+        // Then both components appear in the derived date
+        #expect(vm.birthDate?.year == 1960)
+        #expect(vm.birthDate?.month == 3)
+    }
+
+    @Test func deathDateNilWhenNotDeceased() throws {
+        // Given a living person's edit form with a stray death year
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+        vm.isDeceased = false
+        vm.deathYearText = "2005"
+
+        // Then no death date is derived
+        #expect(vm.deathDate == nil)
+    }
+
+    @Test func deathDateParsedWhenDeceased() throws {
+        // Given a deceased person's edit form with a death year
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+        vm.isDeceased = true
+        vm.deathYearText = "2005"
+
+        // Then the death year is parsed
+        #expect(vm.deathDate?.year == 2005)
+    }
+
+    @Test func deathDateNonNilWhenDeceasedWithNoYear() throws {
+        // Given a deceased person with an unknown death year
+        let person = Person(treeId: UUID(), firstName: "Ravi")
+        let vm = PersonEditViewModel(person: person)
+        vm.isDeceased = true
+        vm.deathYearText = ""
+
+        // Then the death date is non-nil (so isDeceased survives) but year-less
+        #expect(vm.deathDate != nil)
+        #expect(vm.deathDate?.year == nil)
+    }
+
+    @Test func saveWritesChangesToPerson() async throws {
+        // Given a person in a context and an edit form with changes
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Old", lastName: "Name")
+        let vm = PersonEditViewModel(person: person)
+        vm.firstName = "  Ravi  "
+        vm.lastName = "  Das  "
+        vm.sex = .female
+        vm.birthYearText = "1960"
+        vm.birthMonthText = "3"
+        vm.isDeceased = true
+        vm.deathYearText = "2005"
+        vm.bio = "   "
+
+        // When the form is saved
+        try await vm.save(person: person, in: builder.context)
+
+        // Then trimmed values are written and a blank bio becomes nil
+        #expect(person.firstName == "Ravi")
+        #expect(person.lastName == "Das")
+        #expect(person.sex == .female)
+        #expect(person.birthDate?.year == 1960)
+        #expect(person.birthDate?.month == 3)
+        #expect(person.isDeceased)
+        #expect(person.deathDate?.year == 2005)
+        #expect(person.bio == nil)
+    }
+}

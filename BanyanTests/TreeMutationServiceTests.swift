@@ -3,6 +3,7 @@
 // union, and saves. Read-back assertions go through GraphService.
 
 import Foundation
+import SwiftData
 import Testing
 @testable import Banyan
 
@@ -184,5 +185,69 @@ struct TreeMutationServiceTests {
         // Then the person still reads as deceased, with an unknown death date
         #expect(parent.isDeceased)
         #expect(parent.deathDate?.year == nil)
+    }
+
+    // MARK: - Delete
+
+    @Test func deletePersonRemovesThem() throws {
+        // Given an owner with a child
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: treeId)
+        let child = try service.addChild(
+            to: owner,
+            firstName: "Kid",
+            lastName: "",
+            birthDate: nil,
+            isDeceased: false,
+            deathDate: nil,
+            in: builder.context
+        )
+
+        // When the child is deleted
+        try service.deletePerson(child, in: builder.context)
+
+        // Then the owner has no children left
+        #expect(graphService.children(of: owner).isEmpty)
+    }
+
+    @Test func deletePersonPrunesOrphanedParentUnion() throws {
+        // Given a child whose sole parent sits in a one-partner union
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+        let parent = builder.makePerson(firstName: "Parent", treeId: treeId)
+        let union = builder.makeUnion(treeId: treeId)
+        builder.link(person: parent, to: union, role: .partner)
+        builder.link(person: focal, to: union, role: .child)
+
+        // When the sole parent is deleted
+        try service.deletePerson(parent, in: builder.context)
+
+        // Then the now-partnerless union is pruned and the child has no parents
+        #expect(graphService.parents(of: focal).isEmpty)
+        let remainingUnions = try builder.context.fetch(FetchDescriptor<Union>())
+        #expect(remainingUnions.isEmpty)
+    }
+
+    @Test func deletePersonKeepsUnionWithRemainingPartner() throws {
+        // Given a two-partner union with a shared child
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let mother = builder.makePerson(firstName: "Mother", treeId: treeId)
+        let father = builder.makePerson(firstName: "Father", treeId: treeId)
+        let child = builder.makePerson(firstName: "Child", treeId: treeId)
+        let union = builder.makeUnion(treeId: treeId)
+        builder.link(person: mother, to: union, role: .partner)
+        builder.link(person: father, to: union, role: .partner)
+        builder.link(person: child, to: union, role: .child)
+
+        // When one partner is deleted
+        try service.deletePerson(father, in: builder.context)
+
+        // Then the union survives and the child still has the other parent
+        let parents = graphService.parents(of: child)
+        #expect(parents.count == 1)
+        #expect(parents.first?.id == mother.id)
     }
 }

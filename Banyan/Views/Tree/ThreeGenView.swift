@@ -1,6 +1,6 @@
 // ThreeGenView.swift
 // The 3-generation focused tree: parents on top, focal person with siblings and
-// partner(s) in the middle, children below. Tapping any node re-centres the tree.
+// partner(s) in the middle, children below. Tapping any node opens the person sheet.
 
 import SwiftUI
 
@@ -11,6 +11,8 @@ struct ThreeGenView: View {
     /// The tree owner's id — NOT the focal person. "My tree" compares the current
     /// focus against this, so it must stay fixed while the focus moves around.
     let ownerPersonId: UUID
+    /// Called when any person node is tapped — opens the person sheet.
+    let onSelectPerson: (Person) -> Void
     /// Called when a placeholder node is tapped, with the relationship to create.
     let onAddPerson: (AddPersonContext) -> Void
 
@@ -148,12 +150,12 @@ struct ThreeGenView: View {
         }
     }
 
-    /// A person node that publishes its centre anchor and re-centres the tree on tap.
-    /// The focal node's tap is a no-op — it is already the centre.
+    /// A person node that publishes its centre anchor and opens the person sheet on tap.
+    /// Every node — the focal one included — opens the sheet; "See their family"
+    /// inside the sheet is what re-centres the tree.
     private func node(for person: Person, isFocal: Bool = false) -> some View {
         PersonNodeView(person: person, isFocal: isFocal) {
-            guard !isFocal else { return }
-            treeVM.focus(on: person.id)
+            onSelectPerson(person)
         }
         .anchorPreference(key: NodeAnchorKey.self, value: .center) { [person.id: $0] }
     }

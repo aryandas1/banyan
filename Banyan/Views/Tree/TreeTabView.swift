@@ -14,9 +14,14 @@ struct TreeTabView: View {
     /// Shared across the tab's lifetime — stateless, so one instance is enough for every
     /// ViewModel this composition root creates.
     private let graphService: GraphServiceProtocol
+    private let mutationService: TreeMutationServiceProtocol = TreeMutationService()
     @State private var treeViewModel: TreeViewModel
     @State private var threeGenViewModel: ThreeGenViewModel?
     @State private var addPersonContext: AddPersonContext? = nil
+    @State private var selectedPerson: Person? = nil
+    /// Stashes an "Add …" request from the person sheet until that sheet is fully
+    /// dismissed — presenting the add sheet in the same tick drops the presentation.
+    @State private var pendingAddContext: AddPersonContext? = nil
 
     init(ownerPersonId: UUID) {
         self.ownerPersonId = ownerPersonId
@@ -44,6 +49,7 @@ struct TreeTabView: View {
                         treeVM: treeViewModel,
                         allPeople: treePeople,
                         ownerPersonId: ownerPersonId,
+                        onSelectPerson: { person in selectedPerson = person },
                         onAddPerson: { context in addPersonContext = context }
                     )
                 } else {
@@ -65,6 +71,23 @@ struct TreeTabView: View {
                     refreshSnapshot()
                 }
             }
+            .sheet(item: $selectedPerson, onDismiss: presentPendingAddIfNeeded) { person in
+                PersonSheetView(
+                    person: person,
+                    graphService: graphService,
+                    mutationService: mutationService,
+                    isFocal: person.id == focalPersonId,
+                    canDelete: person.id != ownerPersonId,
+                    onSeeFamily: { personId in
+                        selectedPerson = nil
+                        treeViewModel.focus(on: personId)
+                    },
+                    onAddPerson: { context in
+                        selectedPerson = nil
+                        pendingAddContext = context
+                    }
+                )
+            }
             .sheet(item: $addPersonContext) { context in
                 AddPersonView(context: context) {
                     refreshSnapshot()
@@ -85,10 +108,23 @@ struct TreeTabView: View {
     }
 
     /// Reloads the 3-generation snapshot around the current focal person,
-    /// e.g. after the add-person sheet saves a new relative.
+    /// e.g. after the add-person sheet saves a new relative. Falls back to the
+    /// owner when the focal person no longer exists (e.g. it was just deleted).
     private func refreshSnapshot() {
-        guard let focalPerson = person(with: focalPersonId) else { return }
-        threeGenViewModel?.update(focalPerson: focalPerson)
+        if let focalPerson = person(with: focalPersonId) {
+            threeGenViewModel?.update(focalPerson: focalPerson)
+        } else {
+            treeViewModel.resetToRoot(ownerId: ownerPersonId)   // focal was deleted
+            setUpIfPossible()
+        }
+    }
+
+    /// After the person sheet closes, present any "Add …" it requested. Deferring to
+    /// `onDismiss` avoids SwiftData dropping a sheet presented in the same runloop tick.
+    private func presentPendingAddIfNeeded() {
+        guard let context = pendingAddContext else { return }
+        pendingAddContext = nil
+        addPersonContext = context
     }
 
     private func person(with id: UUID) -> Person? {

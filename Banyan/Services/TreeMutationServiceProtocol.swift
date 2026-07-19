@@ -49,4 +49,10 @@ protocol TreeMutationServiceProtocol {
         deathDate: PartialDate?,
         in context: ModelContext
     ) throws -> Person
+
+    /// Deletes a person and prunes any union left with no partners.
+    /// Removing the person cascades their PersonUnionLinks; unions the person
+    /// belonged to are then inspected and deleted if no partner link remains
+    /// (e.g. a child's sole parent union once that parent is gone).
+    func deletePerson(_ person: Person, in context: ModelContext) throws
 }
