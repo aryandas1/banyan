@@ -124,6 +124,33 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         return newChild
     }
 
+    /// Deletes a person and prunes any union left with no partners.
+    /// The person's own links cascade; unions they belonged to are then
+    /// removed when no partner other than the deleted person remains — e.g. a
+    /// child's sole parent union once that parent is gone.
+    func deletePerson(_ person: Person, in context: ModelContext) throws {
+        // Decide which unions become partnerless BEFORE deleting anything.
+        // SwiftData does not eagerly remove the cascaded links from a union's
+        // in-memory `links` array, so counting partners after the delete would
+        // still see the person we just removed. Instead, a union is orphaned
+        // when every partner link belongs to the person being deleted.
+        let orphanedUnions = person.links
+            .compactMap(\.union)
+            .filter { union in
+                union.links.allSatisfy { link in
+                    link.role != .partner || link.person?.id == person.id
+                }
+            }
+
+        context.delete(person)   // cascades person.links
+
+        for union in orphanedUnions {
+            context.delete(union)   // cascades the union's remaining (child) links
+        }
+
+        try context.save()
+    }
+
     // MARK: - Helpers
 
     /// Builds the new Person with trimmed names. Not yet inserted into a context.
