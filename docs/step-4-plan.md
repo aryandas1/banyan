@@ -188,4 +188,65 @@ presented as a sheet from `TreeTabView`. After save, the tree refreshes via
 ## This plan doc
 
 Not committed by default (planning artifact). The user commits manually — leave it for them
-to decide whether to track it or drop it.
+to decide whether to track it or drop it. *(Committed anyway in `f22434d` "step 4" — this
+section was added afterward, so it post-dates the commit.)*
+
+---
+
+## ✅ Completion status (step 4 done)
+
+Committed by the user as `f22434d` "step 4" on branch `feat/step4`. All new + modified files
+from the spec's file list are present. Build is clean, tests are green.
+
+### Branch reality vs. this doc's assumption
+The doc told the next session to build on `feat/step-3`. The repo was actually on **`feat/step4`**,
+which is tree-identical to `main`, which now contains the squash-merged "step 3 (#2)" commit —
+i.e. PR #2 was merged and this branch cut since the doc was written. Verified `main` == old
+`feat/step-3` tip before building, so nothing was missing. **Step 4 was built and committed on
+`feat/step4`.** No PR opened yet (user pushes/opens manually).
+
+### Verified
+- `xcodegen generate` clean; **build with zero compiler warnings, zero errors** (the lone
+  `appintentsmetadataprocessor` "No AppIntents.framework" line is a toolchain notice, not a
+  compiler warning — appears on every build of this target).
+- **46 tests pass** (33 baseline + 13 new: 7 `TreeMutationServiceTests` + 6 `AddPersonViewModelTests`).
+  Written test-first and confirmed failing on the missing types before implementing.
+- **Live screenshots:** the tree with all three placeholder slots, and the Name-step sheet for
+  **all three variants** (parent/partner/child) with correct headings, first-name autofocus, and
+  Continue disabled while the name is blank. Sheets were auto-presented via a temporary
+  env-gated (`BANYAN_UI_SHEET`/`BANYAN_UI_SEED`) hook because scripted taps are blocked; **that
+  hook and the seed code were removed before committing** (grep-confirmed: no `ProcessInfo`/seed
+  code in the commit).
+- **Verified by test/build/code-reading only** (could not be tap-driven from CLI): the Birth,
+  Status, and Review screens; step→step push nav and "Change something" pop-to-root; the full
+  save → `onSave()` → `dismiss()` → tree-refresh cycle; the `saveError` alert path.
+- **Simulator cleanup done:** seeded `@AppStorage` keys deleted, debug build uninstalled, defaults
+  domain confirmed empty — next real launch starts at onboarding. (Note: the screenshots show a
+  focal person named "Test", which was *pre-existing* leftover state from an earlier session, now
+  also wiped.)
+
+### Decisions made where the spec was silent (carry into step 5 / review)
+1. **Deceased with unknown death year → `deathDate = PartialDate()` (all-nil), not `nil`.**
+   `Person.isDeceased` is derived from `deathDate != nil`, so storing `nil` would silently drop
+   the "passed away" answer. Pinned by test `deceasedWithUnknownDeathDateIsStillMarkedDeceased`.
+   Revisit if you'd rather model "deceased" as an explicit flag separate from the date.
+2. **`makeLink` uses insert-then-append-to-both-to-many-sides** (`context.insert(link)`,
+   `person.links.append`, `union.links.append`) — the proven `TestTreeBuilder` pattern — rather
+   than the spec snippet's `link.person = …` / `link.union = …` to-one assignment. Resolves the
+   doc's gap #1 (missing insert) and matches the SwiftData rules in `CLAUDE.md`.
+3. **Save button** wraps `vm.save(in:)` in a `Task { do/catch }` that assigns `vm.saveError` on
+   throw (doc gap #2), bridged to `.alert(isPresented:)` via a computed `Binding<Bool>`.
+
+### Known limitations / possible step-5 follow-ups
+- **The add-person flow never collects `sex`** — every new person is `.unknown`. No visible effect
+  today (`PersonNodeView` renders initials, not sex-based iconography), but the `Sex` enum is
+  documented as "for tree layout and iconography", so a future layout that keys off sex would
+  treat all step-4-created people as unknown. Not a bug; a scope boundary of this step's spec.
+- **`refreshSnapshot()` fires twice per save** — once from `AddPersonView`'s `onSave` closure and
+  once from `onChange(of: allPeople.count)`. Harmless (idempotent re-query) but could be
+  collapsed to one path if desired.
+- **The step-4 spec doc** (`docs/claude-code-prompt-step-4-add-person-flow.md`) is *not* tracked,
+  though this plan doc and the step-3 spec doc are. Inconsistent tracking — the user's call.
+- **No edit/delete flow yet** — step 4 only *adds*. Editing an added person, choosing child type
+  (biological/adopted/step/foster — the `ChildType` enum exists but is always `nil` here), setting
+  union type/dates, and removing people are all still unbuilt.
