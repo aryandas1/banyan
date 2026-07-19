@@ -66,6 +66,10 @@ struct PersonRowView: View {
             photo = nil
             return
         }
-        photo = await Task.detached { PhotoStorageService.load(filename: filename) }.value
+        let loaded = await Task.detached { PhotoStorageService.load(filename: filename) }.value
+        // The row may have been recycled or its filename changed while loading; don't paint a
+        // stale image over whatever the current .task is now loading.
+        guard !Task.isCancelled else { return }
+        photo = loaded
     }
 }
