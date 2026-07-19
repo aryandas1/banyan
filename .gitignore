@@ -2,7 +2,7 @@
 .DS_Store
 
 # Local build-process prompts — kept on disk, not committed
-docs/claude-code-prompt-*.md
+docs/*.md
 
 # Xcode
 #
