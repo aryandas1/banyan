@@ -5,7 +5,7 @@ underlying data is always stored correctly — these are about what the focused 
 chooses to *render*, and about UX affordances not yet built. Captured here so they aren't
 rediscovered as "bugs" and so a future layout/polish step can pick them up deliberately.
 
-Last updated: closing out step 5 (person sheet). 58 tests green.
+Last updated: opening step 7 (people list). 69 tests green after step 6 + its review.
 
 ---
 
@@ -53,6 +53,24 @@ multi-partner people (remarriages, etc.) are fully navigable.
 parent (a different second parent) are not counted. This is a deliberate MVP simplification.
 
 **Option for a future step:** widen the definition to half-siblings if users expect them.
+
+---
+
+## 4. The People tab can't navigate the tree — tapping "See their family" / "Add …" only dismisses
+
+**Where:** `PeopleListView` (step 7).
+
+**Behaviour:** Opening a person from the People tab presents the same `PersonSheetView` used by
+the Tree tab, but its `onSeeFamily` and `onAddPerson` callbacks just dismiss the sheet — they
+don't re-centre the tree, because tree navigation lives in a different tab (`TreeTabView` owns
+the focal state). So from the People tab those buttons are effectively no-ops beyond closing.
+
+**Why:** MVP scoping. Cross-tab navigation (tap a person in People → jump to them focused in the
+Tree tab) needs shared focal state across tabs, which isn't built. The user can switch to the
+Tree tab and navigate there.
+
+**Option for a future step:** hoist the focal-person state above the `TabView` (or route through a
+shared coordinator) so People-tab taps can drive the Tree tab.
 
 ---
 
