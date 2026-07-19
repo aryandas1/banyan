@@ -1,15 +1,20 @@
 // ContentView.swift
-// Placeholder root view — replaced in step 2.
+// Root gate: first launch shows onboarding; afterwards, the main tab shell.
 
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("ownerPersonId") private var ownerPersonIdString: String = ""
+
     var body: some View {
-        Text("Banyan")
-            .font(.largeTitle)
+        if ownerPersonIdString.isEmpty {
+            WelcomeView()
+        } else {
+            MainTabView()
+        }
     }
 }
 
-#Preview {
+#Preview("Onboarding") {
     ContentView()
 }
