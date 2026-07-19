@@ -1,7 +1,9 @@
-# This workflow will build a Swift project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+# Builds and tests Banyan with xcodebuild.
+# This is an XcodeGen + xcodebuild iOS app (SwiftUI/SwiftData), not a SwiftPM
+# package, so `swift build` / `swift test` do not apply. The .xcodeproj is
+# generated from project.yml and gitignored, so CI regenerates it first.
 
-name: Swift
+name: CI
 
 on:
   push:
@@ -10,13 +12,31 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-
+  build-and-test:
     runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      run: xcodegen generate
+
+    - name: Build and test
+      run: |
+        # Pick any available iPhone simulator on the runner — the hardware/OS
+        # differs from the local iPhone 17, so don't hardcode a device name.
+        UDID=$(xcrun simctl list --json devices available \
+          | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+        if [ -z "$UDID" ] || [ "$UDID" = "null" ]; then
+          echo "No iPhone simulator available on the runner" >&2
+          exit 1
+        fi
+        echo "Testing on simulator $UDID"
+        xcodebuild test \
+          -scheme Banyan \
+          -sdk iphonesimulator \
+          -destination "id=$UDID" \
+          CODE_SIGNING_ALLOWED=NO
