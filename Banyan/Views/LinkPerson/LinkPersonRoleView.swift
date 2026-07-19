@@ -11,7 +11,7 @@ struct LinkPersonRoleView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("How is \(anchor.firstName) related to \(person.firstName)?")
+            Text("How is \(person.firstName) related to \(anchor.firstName)?")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 

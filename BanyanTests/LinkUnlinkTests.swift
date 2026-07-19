@@ -110,6 +110,57 @@ struct LinkUnlinkTests {
         #expect(partnerLinks.first?.union?.links.filter { $0.role == .partner }.count == 1)
     }
 
+    // MARK: - Re-linking is idempotent (no duplicate unions/links)
+
+    @Test func linkAsPartnerIgnoresExistingPartner() throws {
+        // Given two people already partnered in one union
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+        let partner = builder.makePerson(firstName: "Partner", treeId: treeId)
+        try service.linkAsPartner(partner, with: focal, in: builder.context)
+
+        // When they are linked as partners a second time
+        try service.linkAsPartner(partner, with: focal, in: builder.context)
+
+        // Then no duplicate union or partner is created
+        #expect(graphService.allPartners(of: focal).count == 1)
+        let unions = try builder.context.fetch(FetchDescriptor<Union>())
+        #expect(unions.count == 1)
+    }
+
+    @Test func linkAsParentIgnoresExistingParent() throws {
+        // Given a focal person whose parent is already linked
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+        let parent = builder.makePerson(firstName: "Parent", treeId: treeId)
+        try service.linkAsParent(parent, of: focal, in: builder.context)
+
+        // When the same parent is linked again
+        try service.linkAsParent(parent, of: focal, in: builder.context)
+
+        // Then the parent is not duplicated and no second parent union appears
+        #expect(graphService.parents(of: focal).count == 1)
+        #expect(focal.links.filter { $0.role == .child }.count == 1)
+    }
+
+    @Test func linkAsChildIgnoresExistingChild() throws {
+        // Given a focal person whose child is already linked
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+        let kid = builder.makePerson(firstName: "Kid", treeId: treeId)
+        try service.linkAsChild(kid, of: focal, in: builder.context)
+
+        // When the same child is linked again
+        try service.linkAsChild(kid, of: focal, in: builder.context)
+
+        // Then the child is not duplicated
+        #expect(graphService.children(of: focal).count == 1)
+        #expect(kid.links.filter { $0.role == .child }.count == 1)
+    }
+
     // MARK: - Unlink
 
     @Test func unlinkRemovesConnection() throws {

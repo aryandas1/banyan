@@ -157,6 +157,10 @@ final class TreeMutationService: TreeMutationServiceProtocol {
     /// existing single-parent union when one exists — the same union-reuse
     /// rule as `addParent`, minus the person creation.
     func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
+        // Already this person's parent — making the link again would only
+        // duplicate it (or spawn a redundant union). Treat as a no-op.
+        guard !alreadyConnected(person, as: .partner, to: anchorPerson, as: .child) else { return }
+
         let singleParentUnion = anchorPerson.links
             .filter { $0.role == .child }
             .compactMap(\.union)
@@ -178,6 +182,10 @@ final class TreeMutationService: TreeMutationServiceProtocol {
 
     /// Links two existing people as partners in a new union.
     func linkAsPartner(_ person: Person, with anchorPerson: Person, in context: ModelContext) throws {
+        // Already partners — a second union pairing the same two people would
+        // render as a duplicate. Treat as a no-op.
+        guard !alreadyConnected(person, as: .partner, to: anchorPerson, as: .partner) else { return }
+
         let union = Union(treeId: anchorPerson.treeId, type: .unknown)
         context.insert(union)
         makeLink(person: anchorPerson, union: union, role: .partner, in: context)
@@ -190,6 +198,10 @@ final class TreeMutationService: TreeMutationServiceProtocol {
     /// union where `anchorPerson` is already a partner when one exists — the
     /// same union-reuse rule as `addChild`, minus the person creation.
     func linkAsChild(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
+        // Already this person's child — making the link again would only
+        // duplicate the child link. Treat as a no-op.
+        guard !alreadyConnected(person, as: .child, to: anchorPerson, as: .partner) else { return }
+
         let existingPartnerUnion = anchorPerson.links
             .filter { $0.role == .partner }
             .compactMap(\.union)
@@ -249,6 +261,22 @@ final class TreeMutationService: TreeMutationServiceProtocol {
     }
 
     // MARK: - Helpers
+
+    /// Whether `person` and `anchorPerson` already share a union in which each
+    /// holds the given role — i.e. the connection about to be made already
+    /// exists, so remaking it would only duplicate links (or a whole union).
+    private func alreadyConnected(
+        _ person: Person, as personRole: LinkRole,
+        to anchorPerson: Person, as anchorRole: LinkRole
+    ) -> Bool {
+        let anchorUnionIds = Set(
+            anchorPerson.links.filter { $0.role == anchorRole }.compactMap(\.union?.id)
+        )
+        return person.links.contains { link in
+            link.role == personRole
+                && (link.union.map { anchorUnionIds.contains($0.id) } ?? false)
+        }
+    }
 
     /// Builds the new Person with trimmed names. Not yet inserted into a context.
     /// A deceased person with an unknown death date still gets a non-nil (empty)

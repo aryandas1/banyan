@@ -1,7 +1,15 @@
 # Banyan — Step 6 handoff & plan
 
-> **STATUS: COMPLETE.** Relationship linking built on `feat/step6`; `xcodegen` clean, zero
-> warnings, **66 tests green** (58 + 8 new in `LinkUnlinkTests`). Deviations, all reported:
+> **STATUS: COMPLETE (+ post-review fixes).** Relationship linking built on `feat/step6`;
+> `xcodegen` clean, zero warnings, **69 tests green** (58 + 8 original + 3 added in review).
+> Code review (2026-07-19) fixed two things: the `LinkPersonRoleView` heading was inverted
+> vs. its answer cards (now "How is [person] related to [anchor]?"), and all three
+> `link*` methods now no-op on an already-existing connection via a shared `alreadyConnected`
+> guard — `linkAsPartner` previously stacked a duplicate union on a repeat link (3 new tests
+> cover this). Reported-but-not-fixed: unlinking a child detaches it from both parents (data
+> model has no per-parent link — would need a model change); multiple action buttons share one
+> `List` row (likely fine via `.buttonStyle(.plain)`, unverifiable without live taps — verify
+> on next run). Deviations, all reported:
 > the person sheet body became a plain-style `List` (swipe actions don't function outside a
 > List); the unlink prune rule also deletes a union left with one partner and no children
 > (the spec's literal rule contradicted its own `unlinkCleansUpOrphanedUnion` test); the nav
