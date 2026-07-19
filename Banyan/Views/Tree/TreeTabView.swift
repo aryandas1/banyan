@@ -11,8 +11,18 @@ struct TreeTabView: View {
     @AppStorage("treeId") private var treeIdString: String = ""
     @Query private var allPeople: [Person]
 
-    @State private var treeViewModel = TreeViewModel(graphService: GraphService())
+    /// Shared across the tab's lifetime — stateless, so one instance is enough for every
+    /// ViewModel this composition root creates.
+    private let graphService: GraphServiceProtocol
+    @State private var treeViewModel: TreeViewModel
     @State private var threeGenViewModel: ThreeGenViewModel?
+
+    init(ownerPersonId: UUID) {
+        self.ownerPersonId = ownerPersonId
+        let graphService = GraphService()
+        self.graphService = graphService
+        _treeViewModel = State(initialValue: TreeViewModel(graphService: graphService))
+    }
 
     private var treePeople: [Person] {
         guard let treeId = UUID(uuidString: treeIdString) else { return [] }
@@ -40,7 +50,7 @@ struct TreeTabView: View {
             }
             .onChange(of: treeViewModel.focusedPersonId) { _, newId in
                 guard let person = person(with: newId ?? ownerPersonId) else { return }
-                threeGenViewModel = ThreeGenViewModel(focalPerson: person, graphService: GraphService())
+                threeGenViewModel = ThreeGenViewModel(focalPerson: person, graphService: graphService)
             }
             .onChange(of: ownerPersonId) { _, _ in
                 guard treeViewModel.focusedPersonId == nil else { return }
@@ -61,7 +71,7 @@ struct TreeTabView: View {
     private func setUpIfPossible() {
         guard let owner = person(with: ownerPersonId) else { return }
         treeViewModel.resetToRoot(ownerId: ownerPersonId)
-        threeGenViewModel = ThreeGenViewModel(focalPerson: owner, graphService: GraphService())
+        threeGenViewModel = ThreeGenViewModel(focalPerson: owner, graphService: graphService)
     }
 
     private func person(with id: UUID) -> Person? {

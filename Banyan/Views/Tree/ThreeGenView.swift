@@ -18,8 +18,12 @@ struct ThreeGenView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                BreadcrumbView(stack: treeVM.navigationStack, allPeople: allPeople) { personId in
-                    treeVM.focus(on: personId)
+                BreadcrumbView(
+                    stack: treeVM.navigationStack,
+                    current: threeGenVM.focalPerson.id,
+                    allPeople: allPeople
+                ) { personId in
+                    treeVM.jumpTo(personId: personId)
                 }
 
                 ScrollView {
@@ -163,6 +167,7 @@ struct ThreeGenView: View {
                 Text("Back")
             }
             .font(.body)
+            .frame(minWidth: 44, minHeight: 44)
         }
         .disabled(treeVM.navigationStack.isEmpty)
     }
@@ -172,6 +177,7 @@ struct ThreeGenView: View {
             treeVM.resetToRoot(ownerId: ownerPersonId)
         }
         .font(.body)
+        .frame(minWidth: 44, minHeight: 44)
         .disabled(treeVM.focusedPersonId == ownerPersonId)
     }
 }

@@ -33,6 +33,20 @@ final class TreeViewModel {
         focusedPersonId = previous
     }
 
+    /// Jumps to a person already in the navigation trail (e.g. a breadcrumb tap),
+    /// truncating history back to that point rather than growing it. Falls back to
+    /// `focus(on:)` if the person isn't actually in the stack.
+    func jumpTo(personId: UUID) {
+        guard personId != focusedPersonId else { return }
+
+        guard let index = navigationStack.firstIndex(of: personId) else {
+            focus(on: personId)
+            return
+        }
+        navigationStack.removeSubrange(index...)
+        focusedPersonId = personId
+    }
+
     /// Clears the history and centres the tree on the tree's owner.
     func resetToRoot(ownerId: UUID) {
         navigationStack.removeAll()

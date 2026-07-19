@@ -5,6 +5,9 @@ import SwiftUI
 
 struct BreadcrumbView: View {
     let stack: [UUID]
+    /// The person currently centred in the tree — shown as the trail's final,
+    /// non-tappable segment so the strip also answers "where am I now."
+    let current: UUID
     let allPeople: [Person]
     let onSelect: (UUID) -> Void
 
@@ -22,16 +25,24 @@ struct BreadcrumbView: View {
                         }
                         .frame(minWidth: 44, minHeight: 44)
 
-                        if index < stack.count - 1 {
-                            Image(systemName: "chevron.right")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
+                        chevron
                     }
+
+                    Text(name(for: current))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .frame(minHeight: 44)
                 }
                 .padding(.horizontal)
             }
         }
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
     }
 
     private func name(for personId: UUID) -> String {
@@ -40,5 +51,5 @@ struct BreadcrumbView: View {
 }
 
 #Preview {
-    BreadcrumbView(stack: [], allPeople: []) { _ in }
+    BreadcrumbView(stack: [], current: UUID(), allPeople: []) { _ in }
 }

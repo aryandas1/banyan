@@ -92,4 +92,51 @@ struct TreeViewModelTests {
         // Then the owner is focused
         #expect(viewModel.focusedPersonId == ownerId)
     }
+
+    @Test func jumpToTruncatesStackToThatPerson() {
+        // Given a trail three people deep: A -> B -> C, focused on C
+        let viewModel = TreeViewModel(graphService: GraphService())
+        let personA = UUID()
+        let personB = UUID()
+        let personC = UUID()
+        viewModel.focus(on: personA)
+        viewModel.focus(on: personB)
+        viewModel.focus(on: personC)
+
+        // When jumping back to B via a breadcrumb tap
+        viewModel.jumpTo(personId: personB)
+
+        // Then B is focused and everything visited after B is discarded, not appended
+        #expect(viewModel.focusedPersonId == personB)
+        #expect(viewModel.navigationStack == [personA])
+    }
+
+    @Test func jumpToDoesNothingWhenAlreadyFocused() {
+        // Given a view model already focused on a person
+        let viewModel = TreeViewModel(graphService: GraphService())
+        let personId = UUID()
+        viewModel.focus(on: personId)
+
+        // When jumping to the same person
+        viewModel.jumpTo(personId: personId)
+
+        // Then nothing changes
+        #expect(viewModel.focusedPersonId == personId)
+        #expect(viewModel.navigationStack.isEmpty)
+    }
+
+    @Test func jumpToFallsBackToFocusWhenPersonNotInStack() {
+        // Given a view model focused on A with no history
+        let viewModel = TreeViewModel(graphService: GraphService())
+        let personA = UUID()
+        let personB = UUID()
+        viewModel.focus(on: personA)
+
+        // When jumping to a person who was never visited
+        viewModel.jumpTo(personId: personB)
+
+        // Then it behaves like a normal focus: A is pushed, B becomes focus
+        #expect(viewModel.focusedPersonId == personB)
+        #expect(viewModel.navigationStack == [personA])
+    }
 }
