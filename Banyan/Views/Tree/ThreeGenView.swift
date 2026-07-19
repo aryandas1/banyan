@@ -11,6 +11,8 @@ struct ThreeGenView: View {
     /// The tree owner's id — NOT the focal person. "My tree" compares the current
     /// focus against this, so it must stay fixed while the focus moves around.
     let ownerPersonId: UUID
+    /// Called when a placeholder node is tapped, with the relationship to create.
+    let onAddPerson: (AddPersonContext) -> Void
 
     /// At most this many sibling nodes render; beyond it, two nodes plus a "+N more" pill.
     private let maxVisibleSiblings = 3
@@ -62,7 +64,7 @@ struct ThreeGenView: View {
         HStack(spacing: 24) {
             if threeGenVM.parents.isEmpty {
                 PlaceholderNodeView(label: "Add parent") {
-                    print("Placeholder tapped: Add parent")
+                    onAddPerson(.parent(of: threeGenVM.focalPerson))
                 }
             } else {
                 ForEach(threeGenVM.parents) { parent in
@@ -91,7 +93,7 @@ struct ThreeGenView: View {
             HStack(spacing: 16) {
                 if threeGenVM.children.isEmpty {
                     PlaceholderNodeView(label: "Add child") {
-                        print("Placeholder tapped: Add child")
+                        onAddPerson(.child(of: threeGenVM.focalPerson))
                     }
                 } else {
                     ForEach(threeGenVM.children) { child in
@@ -141,7 +143,7 @@ struct ThreeGenView: View {
                 }
         } else {
             PlaceholderNodeView(label: "Add partner") {
-                print("Placeholder tapped: Add partner")
+                onAddPerson(.partner(of: threeGenVM.focalPerson))
             }
         }
     }

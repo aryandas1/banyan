@@ -16,6 +16,7 @@ struct TreeTabView: View {
     private let graphService: GraphServiceProtocol
     @State private var treeViewModel: TreeViewModel
     @State private var threeGenViewModel: ThreeGenViewModel?
+    @State private var addPersonContext: AddPersonContext? = nil
 
     init(ownerPersonId: UUID) {
         self.ownerPersonId = ownerPersonId
@@ -42,7 +43,8 @@ struct TreeTabView: View {
                         threeGenVM: vm,
                         treeVM: treeViewModel,
                         allPeople: treePeople,
-                        ownerPersonId: ownerPersonId
+                        ownerPersonId: ownerPersonId,
+                        onAddPerson: { context in addPersonContext = context }
                     )
                 } else {
                     ContentUnavailableView("No tree yet", systemImage: "tree")
@@ -57,8 +59,16 @@ struct TreeTabView: View {
                 setUpIfPossible()
             }
             .onChange(of: allPeople.count) { _, _ in
-                guard threeGenViewModel == nil else { return }
-                setUpIfPossible()
+                if threeGenViewModel == nil {
+                    setUpIfPossible()
+                } else {
+                    refreshSnapshot()
+                }
+            }
+            .sheet(item: $addPersonContext) { context in
+                AddPersonView(context: context) {
+                    refreshSnapshot()
+                }
             }
             .onAppear {
                 guard threeGenViewModel == nil else { return }
@@ -72,6 +82,13 @@ struct TreeTabView: View {
         guard let owner = person(with: ownerPersonId) else { return }
         treeViewModel.resetToRoot(ownerId: ownerPersonId)
         threeGenViewModel = ThreeGenViewModel(focalPerson: owner, graphService: graphService)
+    }
+
+    /// Reloads the 3-generation snapshot around the current focal person,
+    /// e.g. after the add-person sheet saves a new relative.
+    private func refreshSnapshot() {
+        guard let focalPerson = person(with: focalPersonId) else { return }
+        threeGenViewModel?.update(focalPerson: focalPerson)
     }
 
     private func person(with id: UUID) -> Person? {
