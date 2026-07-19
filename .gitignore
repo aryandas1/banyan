@@ -1,7 +1,8 @@
 # macOS
 .DS_Store
 
-# Local build-process prompts — kept on disk, not committed
+# Raw prompt dumps from ~/Downloads — kept on disk, not committed.
+# Step handoff/plan docs (e.g. docs/step-3-plan.md) are NOT covered by this and get tracked normally.
 docs/claude-code-prompt-*.md
 
 # Xcode
