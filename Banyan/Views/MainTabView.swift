@@ -18,7 +18,7 @@ struct MainTabView: View {
             TreeTabView(ownerPersonId: ownerPersonId)
                 .tabItem { Label("Tree", systemImage: "person.3.fill") }
 
-            PeopleListView()
+            PeopleListView(ownerPersonId: ownerPersonId)
                 .tabItem { Label("People", systemImage: "list.bullet") }
 
             SettingsView()
