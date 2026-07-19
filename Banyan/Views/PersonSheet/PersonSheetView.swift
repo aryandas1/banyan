@@ -297,6 +297,9 @@ struct PersonSheetView: View {
             return
         }
         let image = await Task.detached { PhotoStorageService.load(filename: filename) }.value
+        // Guard against a stale load: if the filename changed (e.g. a new photo was picked)
+        // while this load was in flight, the .task was cancelled — don't overwrite the new image.
+        guard !Task.isCancelled else { return }
         photoImage = image
     }
 
