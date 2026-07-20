@@ -24,15 +24,17 @@ struct LargeTreeFixture {
     }
 
     /// Builds a 5-generation tree with this shape:
+    /// The tree is deliberately asymmetric — just enough on each branch to reach every
+    /// depth the labelling BFS cares about:
     ///
-    /// Gen 1 (great-grandparents): 8 people, 4 couples
-    /// Gen 2 (grandparents):       8 people, 4 couples (2 children per gen-1 couple)
-    /// Gen 3 (parents + focal):    8 people (focal + 1 sibling per family, 4 families)
-    /// Gen 4 (focal's children):   3 children of focal + partner
-    /// Gen 5 (grandchildren):      2 children of focal's first child
+    /// Gen 1 (great-grandparents): 2 people — paternal only (PatGGF, PatGGM, via PatGF)
+    /// Gen 2 (grandparents):       4 people — paternal (PatGF, PatGM) + maternal (MatGF, MatGM)
+    /// Gen 3 (parents + focal):    4 people — focal, one sibling, and focal's parents (Father, Mother)
+    /// Gen 4 (focal's children):   4 people — focal's partner + 3 children (Child1–3)
+    /// Gen 5 (grandchild):         1 person  — GrandChild1, child of Child1
     ///
-    /// Total: ~35 people — enough to exercise multi-generation traversal.
-    /// For a larger fixture (150+ people) use `buildLarge()`.
+    /// Total: 15 people, no placeholders — enough to exercise multi-generation traversal.
+    /// For a larger fixture (~150 people) use `buildLarge()`.
     init() throws {
         builder = try TestTreeBuilder()
         treeId = UUID()
