@@ -81,6 +81,29 @@ struct AddPersonViewModelTests {
         #expect(vm.deathDate == nil)
     }
 
+    @Test func saveSiblingContextCreatesSibling() async throws {
+        // Given a sibling-context form anchored on a person with a parent
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let parent = builder.makePerson(firstName: "Parent", treeId: treeId)
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+        let union = builder.makeUnion(treeId: treeId)
+        builder.link(person: parent, to: union, role: .partner)
+        builder.link(person: focal, to: union, role: .child)
+        let vm = AddPersonViewModel(
+            context: .sibling(of: focal),
+            mutationService: TreeMutationService()
+        )
+        vm.firstName = "Sib"
+
+        // When the form is saved
+        try await vm.save(in: builder.context)
+
+        // Then the new person is a sibling of the anchor
+        let graph = GraphService()
+        #expect(graph.siblings(of: focal).contains { $0.firstName == "Sib" })
+    }
+
     @Test func deathDateParsedWhenDeceased() throws {
         // Given a deceased person with a valid death year
         let builder = try TestTreeBuilder()

@@ -50,6 +50,22 @@ protocol TreeMutationServiceProtocol {
         in context: ModelContext
     ) throws -> Person
 
+    /// Creates a person and links them as a sibling of `anchorPerson` — i.e. as
+    /// another child of the union `anchorPerson` is a child of.
+    /// If `anchorPerson` already has a parent union, the sibling joins it and so
+    /// shares the same parents. Otherwise a new partnerless union is created
+    /// grouping the two as children of as-yet-unknown parents.
+    @discardableResult
+    func addSibling(
+        to anchorPerson: Person,
+        firstName: String,
+        lastName: String,
+        birthDate: PartialDate?,
+        isDeceased: Bool,
+        deathDate: PartialDate?,
+        in context: ModelContext
+    ) throws -> Person
+
     /// Deletes a person and prunes any union left with no partners.
     /// Removing the person cascades their PersonUnionLinks; unions the person
     /// belonged to are then inspected and deleted if no partner link remains
