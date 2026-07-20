@@ -5,7 +5,7 @@ underlying data is always stored correctly — these are about what the focused 
 chooses to *render*, and about UX affordances not yet built. Captured here so they aren't
 rediscovered as "bugs" and so a future layout/polish step can pick them up deliberately.
 
-Last updated: opening step 7 (people list). 69 tests green after step 6 + its review.
+Last updated: opening step 8 (large-tree performance). 86 tests green after step 7 + its review.
 
 ---
 

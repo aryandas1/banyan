@@ -12,6 +12,7 @@ struct PeopleListView: View {
     @Query private var allPeople: [Person]
     @State private var query: String = ""
     @State private var selectedPerson: Person?
+    @State private var labelCache: [UUID: String] = [:]
 
     private let graphService: GraphServiceProtocol = GraphService()
 
@@ -60,6 +61,8 @@ struct PeopleListView: View {
             }
             .navigationTitle("People")
             .searchable(text: $query, prompt: "Search by name")
+            .onAppear { rebuildLabelCache() }
+            .onChange(of: treePeople.map(\.id)) { _, _ in rebuildLabelCache() }
             .sheet(item: $selectedPerson) { person in
                 // onSeeFamily / onAddPerson only dismiss here — tree navigation lives in the
                 // Tree tab, so the People tab can't re-centre it. See docs/known-gaps.md #4.
@@ -77,11 +80,26 @@ struct PeopleListView: View {
         }
     }
 
-    /// The relationship label for a row, from the owner's perspective.
+    /// The relationship label for a row, read from the cache. Empty until the cache is built
+    /// (on appear / when the tree's id-set changes) — never a per-render BFS traversal.
     private func labelFor(_ person: Person) -> String {
-        guard let owner else { return "" }
-        if person.id == owner.id { return "That's you" }
-        return RelationshipLabel.label(from: owner, to: person, using: graphService)
+        labelCache[person.id] ?? ""
+    }
+
+    /// Recomputes every tree member's owner-relative label in one pass. Called on appear and
+    /// whenever `treePeople`'s id-set changes (add/delete), so search keystrokes — which only
+    /// re-render — never trigger BFS. The owner is labelled "That's you"; everyone else via BFS.
+    private func rebuildLabelCache() {
+        guard let owner else { return }
+        var cache: [UUID: String] = [:]
+        for person in treePeople {
+            if person.id == owner.id {
+                cache[person.id] = "That's you"
+            } else {
+                cache[person.id] = RelationshipLabel.label(from: owner, to: person, using: graphService)
+            }
+        }
+        labelCache = cache
     }
 }
 
