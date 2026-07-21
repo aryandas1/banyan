@@ -206,6 +206,51 @@ struct TreeMutationServiceTests {
         #expect(graphService.parents(of: focal).isEmpty)
     }
 
+    @Test func addParentToSiblingGroupAttachesToEveryone() throws {
+        // Given two siblings grouped by a parentless union (parents unknown)
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let a = builder.makePerson(firstName: "A", treeId: treeId)
+        let b = try service.addSibling(
+            to: a, firstName: "B", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+
+        // When a parent is added to one of them
+        let parent = try service.addParent(
+            to: a, firstName: "Mum", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+
+        // Then the parent joins the shared union and parents BOTH siblings,
+        // and no separate union is created
+        #expect(graphService.parents(of: a).map(\.id) == [parent.id])
+        #expect(graphService.parents(of: b).map(\.id) == [parent.id])
+        let unions = try builder.context.fetch(FetchDescriptor<Union>())
+        #expect(unions.count == 1)
+    }
+
+    @Test func linkAsParentToSiblingGroupAttachesToEveryone() throws {
+        // Given two siblings grouped by a parentless union, and an existing person
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let a = builder.makePerson(firstName: "A", treeId: treeId)
+        let b = try service.addSibling(
+            to: a, firstName: "B", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+        let mum = builder.makePerson(firstName: "Mum", treeId: treeId)
+
+        // When the existing person is linked as a parent of one sibling
+        try service.linkAsParent(mum, of: a, in: builder.context)
+
+        // Then they parent BOTH siblings via the shared union
+        #expect(graphService.parents(of: a).map(\.id) == [mum.id])
+        #expect(graphService.parents(of: b).map(\.id) == [mum.id])
+        let unions = try builder.context.fetch(FetchDescriptor<Union>())
+        #expect(unions.count == 1)
+    }
+
     @Test func deleteSiblingKeepsParentlessSiblingGroupIntact() throws {
         // Given three siblings grouped by a parentless union (parents unknown),
         // built through the add-sibling flow

@@ -12,8 +12,9 @@ import SwiftData
 
 final class TreeMutationService: TreeMutationServiceProtocol {
 
-    /// Creates a person and links them as a parent of `anchorPerson`,
-    /// joining the existing single-parent union when one exists.
+    /// Creates a person and links them as a parent of `anchorPerson`, joining an
+    /// existing parent union with room (a one-parent union, or a partnerless
+    /// sibling group) so the new parent attaches to all of that union's children.
     @discardableResult
     func addParent(
         to anchorPerson: Person,
@@ -34,15 +35,18 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         )
         context.insert(newParent)
 
-        let singleParentUnion = anchorPerson.links
+        let reusableParentUnion = anchorPerson.links
             .filter { $0.role == .child }
             .compactMap(\.union)
             .first { union in
-                union.links.filter { $0.role == .partner }.count == 1
+                // A union with room for another partner: an existing one-parent
+                // union, or a partnerless sibling group whose (unknown) parent is
+                // now being named — either way the parent joins all its children.
+                union.links.filter { $0.role == .partner }.count <= 1
             }
 
-        if let singleParentUnion {
-            makeLink(person: newParent, union: singleParentUnion, role: .partner, in: context)
+        if let reusableParentUnion {
+            makeLink(person: newParent, union: reusableParentUnion, role: .partner, in: context)
         } else {
             let union = Union(treeId: anchorPerson.treeId, type: .unknown)
             context.insert(union)
@@ -199,23 +203,27 @@ final class TreeMutationService: TreeMutationServiceProtocol {
 
     // MARK: - Link existing people (step 6)
 
-    /// Links an existing person as a parent of `anchorPerson`, joining the
-    /// existing single-parent union when one exists — the same union-reuse
-    /// rule as `addParent`, minus the person creation.
+    /// Links an existing person as a parent of `anchorPerson`, joining a parent
+    /// union with room (a one-parent union, or a partnerless sibling group) so the
+    /// parent attaches to all its children — the same union-reuse rule as
+    /// `addParent`, minus the person creation.
     func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
         // Already this person's parent — making the link again would only
         // duplicate it (or spawn a redundant union). Treat as a no-op.
         guard !alreadyConnected(person, as: .partner, to: anchorPerson, as: .child) else { return }
 
-        let singleParentUnion = anchorPerson.links
+        let reusableParentUnion = anchorPerson.links
             .filter { $0.role == .child }
             .compactMap(\.union)
             .first { union in
-                union.links.filter { $0.role == .partner }.count == 1
+                // Room for another partner: an existing one-parent union, or a
+                // partnerless sibling group now having a parent named — the parent
+                // joins all its children.
+                union.links.filter { $0.role == .partner }.count <= 1
             }
 
-        if let singleParentUnion {
-            makeLink(person: person, union: singleParentUnion, role: .partner, in: context)
+        if let reusableParentUnion {
+            makeLink(person: person, union: reusableParentUnion, role: .partner, in: context)
         } else {
             let union = Union(treeId: anchorPerson.treeId, type: .unknown)
             context.insert(union)

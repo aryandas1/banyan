@@ -8,9 +8,10 @@ import SwiftData
 /// All methods insert the returned Person into the context and save.
 protocol TreeMutationServiceProtocol {
     /// Creates a person and links them as a parent of `anchorPerson`.
-    /// If `anchorPerson` already has exactly one parent union with one partner,
-    /// the new parent is added as the second partner in that union.
-    /// Otherwise a new union is created.
+    /// Reuses a parent union that has room — a one-parent union (adding the second
+    /// partner) or a partnerless sibling group (naming its unknown parent) — so the
+    /// new parent attaches to all of that union's children. Otherwise a new union
+    /// is created.
     @discardableResult
     func addParent(
         to anchorPerson: Person,
@@ -73,8 +74,9 @@ protocol TreeMutationServiceProtocol {
     func deletePerson(_ person: Person, in context: ModelContext) throws
 
     /// Links an already-existing person as a parent of `anchorPerson`.
-    /// Same union-reuse rule as `addParent`: joins the existing single-parent
-    /// union when one exists, otherwise creates a new union. No Person is created.
+    /// Same union-reuse rule as `addParent`: joins a parent union with room (a
+    /// one-parent union or a partnerless sibling group), otherwise creates a new
+    /// union. No Person is created.
     func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws
 
     /// Links two already-existing people as partners in a new union.
