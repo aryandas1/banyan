@@ -166,6 +166,7 @@ struct PersonSheetView: View {
             addButton("Add \(person.firstName)'s parent") { onAddPerson(.parent(of: person)) }
             addButton("Add \(person.firstName)'s partner") { onAddPerson(.partner(of: person)) }
             addButton("Add \(person.firstName)'s child") { onAddPerson(.child(of: person)) }
+            addButton("Add \(person.firstName)'s sibling") { onAddPerson(.sibling(of: person)) }
             addButton("Link to someone already in the tree") { showLinkSheet = true }
         }
     }

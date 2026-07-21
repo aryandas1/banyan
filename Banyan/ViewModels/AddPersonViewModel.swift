@@ -98,6 +98,12 @@ final class AddPersonViewModel {
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
+        case .sibling:
+            try mutationService.addSibling(
+                to: anchor, firstName: first, lastName: last,
+                birthDate: birthDate, isDeceased: isDeceased,
+                deathDate: deathDate, in: modelContext
+            )
         }
     }
 }

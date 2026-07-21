@@ -12,8 +12,9 @@ import SwiftData
 
 final class TreeMutationService: TreeMutationServiceProtocol {
 
-    /// Creates a person and links them as a parent of `anchorPerson`,
-    /// joining the existing single-parent union when one exists.
+    /// Creates a person and links them as a parent of `anchorPerson`, joining an
+    /// existing parent union with room (a one-parent union, or a partnerless
+    /// sibling group) so the new parent attaches to all of that union's children.
     @discardableResult
     func addParent(
         to anchorPerson: Person,
@@ -34,15 +35,18 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         )
         context.insert(newParent)
 
-        let singleParentUnion = anchorPerson.links
+        let reusableParentUnion = anchorPerson.links
             .filter { $0.role == .child }
             .compactMap(\.union)
             .first { union in
-                union.links.filter { $0.role == .partner }.count == 1
+                // A union with room for another partner: an existing one-parent
+                // union, or a partnerless sibling group whose (unknown) parent is
+                // now being named — either way the parent joins all its children.
+                union.links.filter { $0.role == .partner }.count <= 1
             }
 
-        if let singleParentUnion {
-            makeLink(person: newParent, union: singleParentUnion, role: .partner, in: context)
+        if let reusableParentUnion {
+            makeLink(person: newParent, union: reusableParentUnion, role: .partner, in: context)
         } else {
             let union = Union(treeId: anchorPerson.treeId, type: .unknown)
             context.insert(union)
@@ -124,22 +128,68 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         return newChild
     }
 
-    /// Deletes a person and prunes any union left with no partners.
-    /// The person's own links cascade; unions they belonged to are then
-    /// removed when no partner other than the deleted person remains — e.g. a
-    /// child's sole parent union once that parent is gone.
+    /// Creates a person and links them as a sibling of `anchorPerson`, joining
+    /// the union `anchorPerson` is a child of so the two share parents. When
+    /// `anchorPerson` has no parent union yet, a new partnerless union is created
+    /// grouping both as children of as-yet-unknown parents.
+    @discardableResult
+    func addSibling(
+        to anchorPerson: Person,
+        firstName: String,
+        lastName: String,
+        birthDate: PartialDate?,
+        isDeceased: Bool,
+        deathDate: PartialDate?,
+        in context: ModelContext
+    ) throws -> Person {
+        let newSibling = makePerson(
+            treeId: anchorPerson.treeId,
+            firstName: firstName,
+            lastName: lastName,
+            birthDate: birthDate,
+            isDeceased: isDeceased,
+            deathDate: deathDate
+        )
+        context.insert(newSibling)
+
+        let parentUnion = anchorPerson.links
+            .filter { $0.role == .child }
+            .compactMap(\.union)
+            .first
+
+        if let parentUnion {
+            makeLink(person: newSibling, union: parentUnion, role: .child, in: context)
+        } else {
+            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(union)
+            makeLink(person: anchorPerson, union: union, role: .child, in: context)
+            makeLink(person: newSibling, union: union, role: .child, in: context)
+        }
+
+        try context.save()
+        return newSibling
+    }
+
+    /// Deletes a person and prunes any union that no longer relates people once
+    /// they are gone. The person's own links cascade; a union they belonged to is
+    /// removed only when, after their removal, it has no other partner *and* fewer
+    /// than two children — e.g. a child's sole parent union once the parent is
+    /// gone. A parentless sibling group with two or more surviving children is
+    /// kept, so deleting one sibling doesn't dissolve the others' relationship.
     func deletePerson(_ person: Person, in context: ModelContext) throws {
-        // Decide which unions become partnerless BEFORE deleting anything.
-        // SwiftData does not eagerly remove the cascaded links from a union's
-        // in-memory `links` array, so counting partners after the delete would
-        // still see the person we just removed. Instead, a union is orphaned
-        // when every partner link belongs to the person being deleted.
+        // Decide each union's fate BEFORE deleting anything. SwiftData does not
+        // eagerly remove the cascaded links from a union's in-memory `links` array,
+        // so inspecting it after the delete would still see the links we removed —
+        // instead, filter the person's own links out of each count up front.
         let orphanedUnions = person.links
             .compactMap(\.union)
             .filter { union in
-                union.links.allSatisfy { link in
-                    link.role != .partner || link.person?.id == person.id
-                }
+                let remaining = union.links.filter { $0.person?.id != person.id }
+                let hasOtherPartner = remaining.contains { $0.role == .partner }
+                let remainingChildren = remaining.filter { $0.role == .child }.count
+                // Nothing meaningful left: no surviving partner, and not enough
+                // children to stand alone as a sibling group.
+                return !hasOtherPartner && remainingChildren < 2
             }
 
         context.delete(person)   // cascades person.links
@@ -153,23 +203,27 @@ final class TreeMutationService: TreeMutationServiceProtocol {
 
     // MARK: - Link existing people (step 6)
 
-    /// Links an existing person as a parent of `anchorPerson`, joining the
-    /// existing single-parent union when one exists — the same union-reuse
-    /// rule as `addParent`, minus the person creation.
+    /// Links an existing person as a parent of `anchorPerson`, joining a parent
+    /// union with room (a one-parent union, or a partnerless sibling group) so the
+    /// parent attaches to all its children — the same union-reuse rule as
+    /// `addParent`, minus the person creation.
     func linkAsParent(_ person: Person, of anchorPerson: Person, in context: ModelContext) throws {
         // Already this person's parent — making the link again would only
         // duplicate it (or spawn a redundant union). Treat as a no-op.
         guard !alreadyConnected(person, as: .partner, to: anchorPerson, as: .child) else { return }
 
-        let singleParentUnion = anchorPerson.links
+        let reusableParentUnion = anchorPerson.links
             .filter { $0.role == .child }
             .compactMap(\.union)
             .first { union in
-                union.links.filter { $0.role == .partner }.count == 1
+                // Room for another partner: an existing one-parent union, or a
+                // partnerless sibling group now having a parent named — the parent
+                // joins all its children.
+                union.links.filter { $0.role == .partner }.count <= 1
             }
 
-        if let singleParentUnion {
-            makeLink(person: person, union: singleParentUnion, role: .partner, in: context)
+        if let reusableParentUnion {
+            makeLink(person: person, union: reusableParentUnion, role: .partner, in: context)
         } else {
             let union = Union(treeId: anchorPerson.treeId, type: .unknown)
             context.insert(union)
