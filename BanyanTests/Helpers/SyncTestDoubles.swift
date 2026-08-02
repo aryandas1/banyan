@@ -13,6 +13,13 @@ struct MockError: Error {}
 /// service swallows failures).
 @MainActor
 final class MockRemoteStore: RemoteStore {
+    /// An ordered record of every mutating call, so tests can assert FK-safe
+    /// ordering (upsert parents before links; delete links before parents).
+    enum Op: Equatable {
+        case upsertTree, upsertPersons, upsertUnions, upsertLinks
+        case delete(RemoteTable)
+    }
+
     private(set) var upsertedTrees: [TreeDTO] = []
     private(set) var upsertedPersonIds: Set<UUID> = []
     private(set) var upsertedUnionIds: Set<UUID> = []
@@ -20,6 +27,7 @@ final class MockRemoteStore: RemoteStore {
     private(set) var personUpsertCallCount = 0
     private(set) var syncCount = 0
     private(set) var deleted: [(table: RemoteTable, id: UUID)] = []
+    private(set) var callLog: [Op] = []
     var remoteIdsByTable: [RemoteTable: Set<UUID>] = [:]
     var errorToThrow: Error?
 
@@ -27,22 +35,26 @@ final class MockRemoteStore: RemoteStore {
         if let errorToThrow { throw errorToThrow }
         syncCount += 1
         upsertedTrees.append(tree)
+        callLog.append(.upsertTree)
     }
 
     func upsert(_ persons: [PersonDTO]) async throws {
         if let errorToThrow { throw errorToThrow }
         personUpsertCallCount += 1
         upsertedPersonIds.formUnion(persons.map(\.id))
+        callLog.append(.upsertPersons)
     }
 
     func upsert(_ unions: [UnionDTO]) async throws {
         if let errorToThrow { throw errorToThrow }
         upsertedUnionIds.formUnion(unions.map(\.id))
+        callLog.append(.upsertUnions)
     }
 
     func upsert(_ links: [PersonUnionLinkDTO]) async throws {
         if let errorToThrow { throw errorToThrow }
         upsertedLinkIds.formUnion(links.map(\.id))
+        callLog.append(.upsertLinks)
     }
 
     func remoteIds(in table: RemoteTable, treeId: UUID) async throws -> Set<UUID> {
@@ -53,6 +65,7 @@ final class MockRemoteStore: RemoteStore {
     func delete(from table: RemoteTable, id: UUID) async throws {
         if let errorToThrow { throw errorToThrow }
         deleted.append((table: table, id: id))
+        callLog.append(.delete(table))
     }
 }
 

@@ -24,6 +24,13 @@ final class SyncService: SyncScheduling {
     @ObservationIgnored private let debounce: Duration
     @ObservationIgnored private var pendingTask: Task<Void, Never>?
 
+    /// The error from the most recent sync attempt, or nil if it succeeded.
+    /// Sync is best-effort and never throws to callers, so this observable is the
+    /// only signal that a push failed (e.g. a misconfigured backend). Starts nil.
+    private(set) var lastSyncError: Error?
+    /// When the most recent sync last completed successfully. nil until then.
+    private(set) var lastSyncDate: Date?
+
     /// - Parameters:
     ///   - remote: the backing store (Supabase in the app, a mock in tests).
     ///   - currentUserId: resolves the signed-in user id — in the app this
@@ -89,9 +96,12 @@ final class SyncService: SyncScheduling {
             try await deleteOrphans(in: .persons, treeId: treeId, localIds: Set(persons.map(\.id)))
             try await deleteOrphans(in: .unions,  treeId: treeId, localIds: Set(unions.map(\.id)))
 
+            lastSyncError = nil
+            lastSyncDate = .now
             print("[SyncService] Synced \(persons.count) persons, \(unions.count) unions, \(linkDTOs.count) links")
         } catch {
-            // Sync is best-effort: log and move on, never surface to the user.
+            // Sync is best-effort: record and log, never surface to the user.
+            lastSyncError = error
             print("[SyncService] Sync failed: \(error)")
         }
     }

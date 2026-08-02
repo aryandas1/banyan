@@ -41,6 +41,35 @@ struct SyncServiceTests {
         #expect(store.upsertedPersonIds == Set([a.id, b.id]))
         #expect(store.upsertedUnionIds == Set([union.id]))
         #expect(store.upsertedLinkIds.count == 2)
+        #expect(sync.lastSyncError == nil)
+        #expect(sync.lastSyncDate != nil)
+    }
+
+    @Test func syncUpsertsParentsBeforeLinksAndDeletesLinksFirst() async throws {
+        let (builder, treeId, _, _, _) = try makeTree()
+        let store = MockRemoteStore()
+        // An orphan in every table, so all three deletes fire and we can order them.
+        store.remoteIdsByTable[.persons] = [UUID()]
+        store.remoteIdsByTable[.unions]  = [UUID()]
+        store.remoteIdsByTable[.links]   = [UUID()]
+        let sync = SyncService(remote: store, currentUserId: { UUID() }, debounce: .milliseconds(5))
+
+        sync.scheduleSync(treeId: treeId, context: builder.context)
+        await sync.awaitPendingSync()
+
+        // Links reference persons + unions, so they must be upserted last...
+        let iLinks   = try #require(store.callLog.firstIndex(of: .upsertLinks))
+        let iPersons = try #require(store.callLog.firstIndex(of: .upsertPersons))
+        let iUnions  = try #require(store.callLog.firstIndex(of: .upsertUnions))
+        #expect(iLinks > iPersons)
+        #expect(iLinks > iUnions)
+
+        // ...and deleted first (FK-safe: children before their parents).
+        let dLinks   = try #require(store.callLog.firstIndex(of: .delete(.links)))
+        let dPersons = try #require(store.callLog.firstIndex(of: .delete(.persons)))
+        let dUnions  = try #require(store.callLog.firstIndex(of: .delete(.unions)))
+        #expect(dLinks < dPersons)
+        #expect(dLinks < dUnions)
     }
 
     @Test func syncDeletesRemoteOrphansOnly() async throws {
@@ -94,5 +123,7 @@ struct SyncServiceTests {
         await sync.awaitPendingSync()   // must return normally, not crash or throw
 
         #expect(store.deleted.isEmpty)
+        #expect(sync.lastSyncError != nil)   // failure is recorded, not surfaced
+        #expect(sync.lastSyncDate == nil)    // never marked as a successful sync
     }
 }
