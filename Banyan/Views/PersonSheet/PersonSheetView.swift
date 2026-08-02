@@ -10,6 +10,7 @@ import PhotosUI
 struct PersonSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SyncService.self) private var syncService
     @State private var sheetVM: PersonSheetViewModel
     @State private var showDeleteConfirmation = false
     @State private var showLinkSheet = false
@@ -232,6 +233,7 @@ struct PersonSheetView: View {
     private func unlink(_ relative: Person) {
         try? mutationService.unlink(relative, from: person, in: modelContext)
         sheetVM.refresh()
+        syncService.scheduleSync(treeId: person.treeId, context: modelContext)
     }
 
     // MARK: - Story
@@ -282,7 +284,9 @@ struct PersonSheetView: View {
 
     private func deletePerson() {
         do {
+            let treeId = person.treeId   // capture before the delete detaches it
             try mutationService.deletePerson(person, in: modelContext)
+            syncService.scheduleSync(treeId: treeId, context: modelContext)
             dismiss()   // TreeTabView's onChange(of: allPeople.count) refreshes the tree
         } catch {
             deleteError = error

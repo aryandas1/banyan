@@ -14,6 +14,10 @@ APP = $(shell find $(HOME)/Library/Developer/Xcode/DerivedData/Banyan-*/Build/Pr
 # Optional test filter: `make test T=LinkUnlinkTests` or `make test T=LinkUnlinkTests/unlinkRemovesConnection`
 ONLY := $(if $(T),-only-testing:BanyanTests/$(T),)
 
+# Coverage: result bundle path, and the gate for meaningful files (override: `make coverage COV_MIN=90`)
+COV_RESULT := build/coverage.xcresult
+COV_MIN    ?= 80
+
 .DEFAULT_GOAL := help
 
 ## help: list the available targets
@@ -35,6 +39,14 @@ build: generate
 .PHONY: test
 test: generate
 	xcodebuild test -scheme $(SCHEME) -sdk iphonesimulator -destination '$(DEST)' $(ONLY)
+
+## coverage: run tests with coverage; gate meaningful files at COV_MIN% (default 80)
+.PHONY: coverage
+coverage: generate
+	rm -rf $(COV_RESULT)
+	xcodebuild test -scheme $(SCHEME) -sdk iphonesimulator -destination '$(DEST)' \
+		-enableCodeCoverage YES -resultBundlePath $(COV_RESULT)
+	python3 scripts/coverage.py $(COV_RESULT) --min $(COV_MIN)
 
 ## boot: boot the simulator (no-op if already booted)
 .PHONY: boot

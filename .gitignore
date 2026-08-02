@@ -1,9 +1,10 @@
 # macOS
 .DS_Store
 
-# Raw prompt dumps from ~/Downloads — kept on disk, not committed.
-# Step handoff/plan docs (e.g. docs/step-3-plan.md) are NOT covered by this and get tracked normally.
+# Documentation is local-only: never commit any markdown from docs/ (prompt
+# dumps, plan/roadmap, design notes all stay on disk, not in the repo).
 docs/*.md
+docs/**/*.md
 
 # Xcode
 #
@@ -37,6 +38,14 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+build/
+
+# Supabase SQL setup scripts — kept in the repo for convenience, not committed.
+sql/
+
+# Supabase client config — holds the project URL + anon key, read at runtime.
+# The anon key is public-by-design (protected by RLS) but kept out of git.
+Banyan/Supabase.plist
 
 # CocoaPods
 #

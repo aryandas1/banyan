@@ -8,6 +8,7 @@ import SwiftData
 struct PersonEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SyncService.self) private var syncService
     @State private var editVM: PersonEditViewModel
     @FocusState private var bioFocused: Bool
     let person: Person
@@ -103,7 +104,7 @@ struct PersonEditView: View {
     private func saveAndDismiss() {
         Task {
             do {
-                try await editVM.save(person: person, in: modelContext)
+                try await editVM.save(person: person, in: modelContext, sync: syncService)
                 dismiss()
             } catch {
                 editVM.saveError = error

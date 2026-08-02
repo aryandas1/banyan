@@ -69,9 +69,10 @@ final class AddPersonViewModel {
         self.mutationService = mutationService
     }
 
-    /// Saves the new person into the graph via the mutation service.
+    /// Saves the new person into the graph via the mutation service, then
+    /// schedules a cloud sync of the affected tree.
     /// Throws on failure — the caller routes the error into `saveError`.
-    func save(in modelContext: ModelContext) async throws {
+    func save(in modelContext: ModelContext, sync: SyncScheduling) async throws {
         isSaving = true
         defer { isSaving = false }
 
@@ -105,5 +106,7 @@ final class AddPersonViewModel {
                 deathDate: deathDate, in: modelContext
             )
         }
+
+        sync.scheduleSync(treeId: anchor.treeId, context: modelContext)
     }
 }

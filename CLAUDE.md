@@ -4,7 +4,7 @@
 - Swift, iOS 17+, SwiftUI, SwiftData
 - Architecture: MVVM
 - Testing: Swift Testing (`import Testing`) — not XCTest
-- No third-party dependencies
+- No third-party dependencies for UI or business logic. Infrastructure SDKs are permitted where they replace significant boilerplate: supabase-swift is approved for Supabase auth, database, and storage access.
 
 ## Build and test commands
 ```

@@ -15,6 +15,7 @@ enum AddPersonStep: Hashable {
 struct AddPersonView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SyncService.self) private var syncService
     @State private var vm: AddPersonViewModel
     @State private var path: [AddPersonStep] = []
     let onSave: () -> Void
@@ -63,7 +64,7 @@ struct AddPersonView: View {
     private func saveAndDismiss() {
         Task {
             do {
-                try await vm.save(in: modelContext)
+                try await vm.save(in: modelContext, sync: syncService)
                 onSave()
                 dismiss()
             } catch {
