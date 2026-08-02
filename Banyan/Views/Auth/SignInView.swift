@@ -12,6 +12,8 @@ import SwiftUI
 struct SignInView: View {
 
     @Environment(AuthStateManager.self) private var authState
+    // Scales the hero icon with Dynamic Type (accessibility goal for older users).
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 64
 
     var body: some View {
         VStack(spacing: 40) {
@@ -19,7 +21,7 @@ struct SignInView: View {
 
             VStack(spacing: 12) {
                 Image(systemName: "tree.fill")
-                    .font(.system(size: 64))
+                    .font(.system(size: iconSize))
                     .foregroundStyle(.green)
 
                 Text("Banyan")
