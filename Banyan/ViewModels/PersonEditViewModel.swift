@@ -53,8 +53,9 @@ final class PersonEditViewModel {
         bio = person.bio ?? ""
     }
 
-    /// Writes the edited values back to the person and saves the context.
-    func save(person: Person, in context: ModelContext) async throws {
+    /// Writes the edited values back to the person, saves, then schedules a
+    /// cloud sync of the person's tree.
+    func save(person: Person, in context: ModelContext, sync: SyncScheduling) async throws {
         isSaving = true
         defer { isSaving = false }
         person.firstName = firstName.trimmingCharacters(in: .whitespaces)
@@ -64,5 +65,6 @@ final class PersonEditViewModel {
         person.deathDate = deathDate
         person.bio = bio.trimmingCharacters(in: .whitespaces).isEmpty ? nil : bio
         try context.save()
+        sync.scheduleSync(treeId: person.treeId, context: context)
     }
 }

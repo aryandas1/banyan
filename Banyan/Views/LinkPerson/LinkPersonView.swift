@@ -25,6 +25,7 @@ enum LinkPersonStep: Hashable {
 struct LinkPersonView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SyncService.self) private var syncService
     @State private var path: [LinkPersonStep] = []
     @State private var saveError: Error?
 
@@ -85,6 +86,7 @@ struct LinkPersonView: View {
             case .child:
                 try mutationService.linkAsChild(person, of: anchor, in: modelContext)
             }
+            syncService.scheduleSync(treeId: anchor.treeId, context: modelContext)
             onSave()
             dismiss()
         } catch {

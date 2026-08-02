@@ -130,7 +130,7 @@ struct PersonEditViewModelTests {
         vm.bio = "   "
 
         // When the form is saved
-        try await vm.save(person: person, in: builder.context)
+        try await vm.save(person: person, in: builder.context, sync: SpySyncScheduler())
 
         // Then trimmed values are written and a blank bio becomes nil
         #expect(person.firstName == "Ravi")
@@ -141,5 +141,21 @@ struct PersonEditViewModelTests {
         #expect(person.isDeceased)
         #expect(person.deathDate?.year == 2005)
         #expect(person.bio == nil)
+    }
+
+    @Test func saveSchedulesSyncForPersonTree() async throws {
+        // Given a person in a specific tree and an edit form
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let person = builder.makePerson(firstName: "Old", treeId: treeId)
+        let vm = PersonEditViewModel(person: person)
+        vm.firstName = "New"
+        let spy = SpySyncScheduler()
+
+        // When the form is saved
+        try await vm.save(person: person, in: builder.context, sync: spy)
+
+        // Then a sync is scheduled for the person's tree
+        #expect(spy.scheduledTreeIds == [treeId])
     }
 }

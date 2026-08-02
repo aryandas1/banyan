@@ -97,11 +97,30 @@ struct AddPersonViewModelTests {
         vm.firstName = "Sib"
 
         // When the form is saved
-        try await vm.save(in: builder.context)
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
 
         // Then the new person is a sibling of the anchor
         let graph = GraphService()
         #expect(graph.siblings(of: focal).contains { $0.firstName == "Sib" })
+    }
+
+    @Test func saveSchedulesSyncForAnchorTree() async throws {
+        // Given an add-child form anchored on a person in a specific tree
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let anchor = builder.makePerson(firstName: "Anchor", treeId: treeId)
+        let vm = AddPersonViewModel(
+            context: .child(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.firstName = "Kid"
+        let spy = SpySyncScheduler()
+
+        // When the form is saved
+        try await vm.save(in: builder.context, sync: spy)
+
+        // Then a sync is scheduled for the anchor's tree
+        #expect(spy.scheduledTreeIds == [treeId])
     }
 
     @Test func deathDateParsedWhenDeceased() throws {
