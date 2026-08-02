@@ -1,26 +1,43 @@
 // BanyanApp.swift
-// App entry point. Installs the SwiftData container from the versioned schema.
+// App entry point and composition root. Builds one Supabase client and injects
+// it into auth and the sync closure — no singletons. Installs the SwiftData
+// container from the versioned schema.
 
 import SwiftUI
 import SwiftData
 
 @main
 struct BanyanApp: App {
-    // The single app-wide sync service, injected into the view tree. Built here
-    // (not in a previewable view) so the Supabase client is only constructed at
-    // real app launch. One client is shared between the store and the auth
-    // closure, which ensures an anonymous session so RLS sees a real user.
-    @State private var syncService: SyncService = {
+    // Drives root navigation from auth state.
+    @State private var authState: AuthStateManager
+    // The single app-wide sync service, injected into the view tree.
+    @State private var syncService: SyncService
+
+    init() {
+        // One shared client at the composition root — injected into auth, the
+        // remote store, and the sync closure (no singletons; CLAUDE.md).
         let client = SupabaseClientProvider.makeClient()
-        return SyncService(
+
+        // Use AnonymousAuthService during development. Switch to AppleAuthService
+        // when Apple Developer credentials are ready.
+        let auth = AuthStateManager(authService: AnonymousAuthService(client: client))
+        _authState = State(initialValue: auth)
+
+        _syncService = State(initialValue: SyncService(
             remote: SupabaseRemoteStore(client: client),
-            currentUserId: { try await SupabaseAuth.currentUserId(client: client) }
-        )
-    }()
+            // Reuse the existing closure seam — sync reads the signed-in user from
+            // AuthStateManager and throws when signed out (SyncService swallows it).
+            currentUserId: {
+                guard let id = auth.userId else { throw AuthError.notSignedIn }
+                return id
+            }
+        ))
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(authState)
                 .environment(syncService)
         }
         .modelContainer(for: BanyanSchemaV1.models)
