@@ -11,6 +11,12 @@ struct TreeTabView: View {
     @AppStorage("treeId") private var treeIdString: String = ""
     @Query private var allPeople: [Person]
 
+    /// Injected at the composition root; used to build a ShareViewModel for the
+    /// share sheet. Auth supplies the signed-in owner id.
+    @Environment(AuthStateManager.self) private var authState
+    @Environment(\.shareService) private var shareService
+    @State private var showShareSheet = false
+
     /// Shared across the tab's lifetime — stateless, so one instance is enough for every
     /// ViewModel this composition root creates.
     private let graphService: GraphServiceProtocol
@@ -37,6 +43,13 @@ struct TreeTabView: View {
 
     private var focalPersonId: UUID {
         treeViewModel.focusedPersonId ?? ownerPersonId
+    }
+
+    /// Whether the Share flow has everything it needs (valid tree id, signed-in
+    /// user, injected service). Gates the toolbar button so it never opens an
+    /// empty sheet.
+    private var canShare: Bool {
+        UUID(uuidString: treeIdString) != nil && authState.userId != nil && shareService != nil
     }
 
     var body: some View {
@@ -97,6 +110,34 @@ struct TreeTabView: View {
             .onAppear {
                 guard threeGenViewModel == nil else { return }
                 setUpIfPossible()
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        Label("Share", systemImage: "person.badge.plus")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    // Gate the button on the same preconditions the sheet needs, so
+                    // it can never present an empty sheet.
+                    .disabled(!canShare)
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                // Both ids and the injected service must be present (guaranteed by
+                // `canShare` gating the button; kept as defence).
+                if let treeId = UUID(uuidString: treeIdString),
+                   let userId = authState.userId,
+                   let shareService {
+                    ShareView(
+                        viewModel: ShareViewModel(
+                            shareService: shareService,
+                            treeId: treeId,
+                            userId: userId
+                        )
+                    )
+                }
             }
         }
     }
