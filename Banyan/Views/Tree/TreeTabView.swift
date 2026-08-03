@@ -45,6 +45,13 @@ struct TreeTabView: View {
         treeViewModel.focusedPersonId ?? ownerPersonId
     }
 
+    /// Whether the Share flow has everything it needs (valid tree id, signed-in
+    /// user, injected service). Gates the toolbar button so it never opens an
+    /// empty sheet.
+    private var canShare: Bool {
+        UUID(uuidString: treeIdString) != nil && authState.userId != nil && shareService != nil
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -112,11 +119,14 @@ struct TreeTabView: View {
                         Label("Share", systemImage: "person.badge.plus")
                     }
                     .frame(minWidth: 44, minHeight: 44)
+                    // Gate the button on the same preconditions the sheet needs, so
+                    // it can never present an empty sheet.
+                    .disabled(!canShare)
                 }
             }
             .sheet(isPresented: $showShareSheet) {
-                // Both ids and the injected service must be present. Signed-out or
-                // pre-onboarding ⇒ nothing to share.
+                // Both ids and the injected service must be present (guaranteed by
+                // `canShare` gating the button; kept as defence).
                 if let treeId = UUID(uuidString: treeIdString),
                    let userId = authState.userId,
                    let shareService {

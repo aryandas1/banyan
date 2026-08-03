@@ -84,8 +84,11 @@ struct InviteView: View {
 
     private func sendInvite() async {
         errorMessage = nil
+        // Trim so stored/displayed numbers don't carry stray whitespace and repeat
+        // invites of the same number dedupe reliably.
+        let trimmed = phoneNumber.trimmingCharacters(in: .whitespaces)
         do {
-            let token = try await viewModel.createInvitation(phoneNumber: phoneNumber)
+            let token = try await viewModel.createInvitation(phoneNumber: trimmed)
             inviteToken = token
             showShareSheet = true
         } catch {

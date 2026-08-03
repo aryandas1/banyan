@@ -71,8 +71,22 @@ final class SupabaseShareService: ShareServiceProtocol {
     }
 
     func createInvitation(treeId: UUID, invitedBy: UUID, phoneNumber: String) async throws -> String {
-        // Generate the token client-side and insert with return=minimal — no
-        // .select() read-back (avoids an extra round-trip and the step-9 RLS
+        // Reuse an existing pending invite for the same phone so repeat taps /
+        // re-invites don't pile up duplicate rows (there's no unique constraint on
+        // (tree_id, phone_number)). This is a plain SELECT under the owner policy —
+        // not an insert read-back — so it doesn't hit the step-9 RLS pitfall.
+        let existing: [InvitationDTO] = try await client
+            .from("invitations")
+            .select()
+            .eq("tree_id", value: treeId.uuidString)
+            .eq("phone_number", value: phoneNumber)
+            .eq("status", value: "pending")
+            .execute()
+            .value
+        if let token = existing.first?.token { return token }
+
+        // Otherwise generate the token client-side and insert with return=minimal —
+        // no .select() read-back (avoids an extra round-trip and the step-9 RLS
         // representation-read pitfall).
         let token = UUID().uuidString
         _ = try await client
