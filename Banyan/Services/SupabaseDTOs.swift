@@ -125,6 +125,75 @@ struct PersonUnionLinkDTO: Codable, Equatable {
     }
 }
 
+// MARK: - Invitation (for creating)
+
+/// The row the owner inserts to invite someone. `token` is generated
+/// client-side (`UUID().uuidString`) and inserted explicitly so the create can
+/// use `return=minimal` — no `.select()` read-back, which sidesteps the step-9
+/// RLS representation-read pitfall (verified: the DB default on `token` remains
+/// a fallback for any other insert path).
+struct InvitationInsertDTO: Codable, Equatable {
+    let treeId: UUID
+    let invitedBy: UUID
+    let phoneNumber: String
+    let token: String
+
+    enum CodingKeys: String, CodingKey {
+        case treeId      = "tree_id"
+        case invitedBy   = "invited_by"
+        case phoneNumber = "phone_number"
+        case token
+    }
+}
+
+// MARK: - Invitation (for reading)
+
+/// A pending/accepted/revoked invitation as read back from Supabase. `createdAt`
+/// is the first `Date` field we decode from a Postgres `timestamptz`; the SDK's
+/// decoder parses the microsecond ISO8601 form (`…+00:00`) — verified against
+/// the live DB.
+struct InvitationDTO: Codable, Identifiable, Equatable {
+    let id: UUID
+    let treeId: UUID
+    let phoneNumber: String
+    let status: String   // "pending" | "accepted" | "revoked"
+    let token: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, token, status
+        case treeId      = "tree_id"
+        case phoneNumber = "phone_number"
+        case createdAt   = "created_at"
+    }
+}
+
+// MARK: - Viewer (a tree_members row, role = viewer)
+
+/// A person who can view the tree. Built from a `tree_members` row.
+///
+/// `displayName` is currently always nil: the owner cannot read another user's
+/// `profiles` row under the current RLS (`profiles` SELECT is scoped to
+/// `auth.uid() = id`, verified against the live DB), and there is no FK to embed
+/// it through either. Labels therefore fall back to "Family member" until either
+/// profiles RLS is broadened for co-members or `display_name` is denormalised
+/// onto `tree_members`. `invitationPhoneNumber` is likewise unfilled: there is no
+/// `accepted_by` link from an invitation to the member who accepted it, so a
+/// per-viewer phone label isn't derivable without a schema change.
+struct ViewerDTO: Identifiable, Equatable {
+    let id: UUID          // user_id from tree_members
+    let displayName: String?
+    let invitationPhoneNumber: String?
+    let joinedAt: Date
+
+    /// The name shown in the viewer list: display name if we have one, else the
+    /// invited phone number, else a gentle generic fallback.
+    var label: String {
+        if let name = displayName, !name.isEmpty { return name }
+        return invitationPhoneNumber ?? "Family member"
+    }
+}
+
 // MARK: - ID-only helper (orphan detection)
 
 struct IDRow: Decodable {

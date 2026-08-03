@@ -11,6 +11,12 @@ struct TreeTabView: View {
     @AppStorage("treeId") private var treeIdString: String = ""
     @Query private var allPeople: [Person]
 
+    /// Injected at the composition root; used to build a ShareViewModel for the
+    /// share sheet. Auth supplies the signed-in owner id.
+    @Environment(AuthStateManager.self) private var authState
+    @Environment(\.shareService) private var shareService
+    @State private var showShareSheet = false
+
     /// Shared across the tab's lifetime — stateless, so one instance is enough for every
     /// ViewModel this composition root creates.
     private let graphService: GraphServiceProtocol
@@ -97,6 +103,31 @@ struct TreeTabView: View {
             .onAppear {
                 guard threeGenViewModel == nil else { return }
                 setUpIfPossible()
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showShareSheet = true
+                    } label: {
+                        Label("Share", systemImage: "person.badge.plus")
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                // Both ids and the injected service must be present. Signed-out or
+                // pre-onboarding ⇒ nothing to share.
+                if let treeId = UUID(uuidString: treeIdString),
+                   let userId = authState.userId,
+                   let shareService {
+                    ShareView(
+                        viewModel: ShareViewModel(
+                            shareService: shareService,
+                            treeId: treeId,
+                            userId: userId
+                        )
+                    )
+                }
             }
         }
     }

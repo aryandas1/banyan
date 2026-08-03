@@ -12,10 +12,13 @@ struct BanyanApp: App {
     @State private var authState: AuthStateManager
     // The single app-wide sync service, injected into the view tree.
     @State private var syncService: SyncService
+    // The owner-side sharing service, injected via the environment (keypath).
+    private let shareService: any ShareServiceProtocol
 
     init() {
         // One shared client at the composition root — injected into auth, the
-        // remote store, and the sync closure (no singletons; CLAUDE.md).
+        // remote store, the sync closure, and the share service (no singletons;
+        // CLAUDE.md).
         let client = SupabaseClientProvider.makeClient()
 
         // Use AnonymousAuthService during development. Switch to AppleAuthService
@@ -32,6 +35,8 @@ struct BanyanApp: App {
                 return id
             }
         ))
+
+        shareService = SupabaseShareService(client: client)
     }
 
     var body: some Scene {
@@ -39,6 +44,7 @@ struct BanyanApp: App {
             ContentView()
                 .environment(authState)
                 .environment(syncService)
+                .environment(\.shareService, shareService)
         }
         .modelContainer(for: BanyanSchemaV1.models)
     }
