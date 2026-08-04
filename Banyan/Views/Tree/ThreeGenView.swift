@@ -5,6 +5,9 @@
 import SwiftUI
 
 struct ThreeGenView: View {
+    /// When true (a viewer's shared tree), the "Add …" placeholder slots are hidden.
+    @Environment(\.isReadOnly) private var isReadOnly
+
     let threeGenVM: ThreeGenViewModel
     let treeVM: TreeViewModel
     let allPeople: [Person]
@@ -65,8 +68,10 @@ struct ThreeGenView: View {
     private var parentRow: some View {
         HStack(spacing: 24) {
             if threeGenVM.parents.isEmpty {
-                PlaceholderNodeView(label: "Add parent") {
-                    onAddPerson(.parent(of: threeGenVM.focalPerson))
+                if !isReadOnly {
+                    PlaceholderNodeView(label: "Add parent") {
+                        onAddPerson(.parent(of: threeGenVM.focalPerson))
+                    }
                 }
             } else {
                 ForEach(threeGenVM.parents) { parent in
@@ -94,8 +99,10 @@ struct ThreeGenView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 16) {
                 if threeGenVM.children.isEmpty {
-                    PlaceholderNodeView(label: "Add child") {
-                        onAddPerson(.child(of: threeGenVM.focalPerson))
+                    if !isReadOnly {
+                        PlaceholderNodeView(label: "Add child") {
+                            onAddPerson(.child(of: threeGenVM.focalPerson))
+                        }
                     }
                 } else {
                     ForEach(threeGenVM.children) { child in
@@ -143,7 +150,7 @@ struct ThreeGenView: View {
                             .offset(x: 8, y: -8)
                     }
                 }
-        } else {
+        } else if !isReadOnly {
             PlaceholderNodeView(label: "Add partner") {
                 onAddPerson(.partner(of: threeGenVM.focalPerson))
             }

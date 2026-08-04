@@ -11,6 +11,8 @@ struct PersonSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SyncService.self) private var syncService
+    /// When true (a viewer's shared tree), every edit control is hidden.
+    @Environment(\.isReadOnly) private var isReadOnly
     @State private var sheetVM: PersonSheetViewModel
     @State private var showDeleteConfirmation = false
     @State private var showLinkSheet = false
@@ -63,7 +65,7 @@ struct PersonSheetView: View {
                 }
                 .listRowSeparator(.hidden)
 
-                if canDelete {
+                if canDelete && !isReadOnly {
                     Section {
                         deleteButton
                     }
@@ -82,9 +84,11 @@ struct PersonSheetView: View {
                     }
                     .accessibilityLabel("Close")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink("Edit") {
-                        PersonEditView(person: person, focusBio: false)
+                if !isReadOnly {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink("Edit") {
+                            PersonEditView(person: person, focusBio: false)
+                        }
                     }
                 }
             }
@@ -112,10 +116,15 @@ struct PersonSheetView: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            PhotosPicker(selection: $pickerItem, matching: .images) {
+            // A viewer can't change the photo — show it without the picker.
+            if isReadOnly {
                 photoCircle
+            } else {
+                PhotosPicker(selection: $pickerItem, matching: .images) {
+                    photoCircle
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             Text(person.fullName)
                 .font(.title2)
@@ -164,11 +173,14 @@ struct PersonSheetView: View {
                 .buttonStyle(.bordered)
             }
 
-            addButton("Add \(person.firstName)'s parent") { onAddPerson(.parent(of: person)) }
-            addButton("Add \(person.firstName)'s partner") { onAddPerson(.partner(of: person)) }
-            addButton("Add \(person.firstName)'s child") { onAddPerson(.child(of: person)) }
-            addButton("Add \(person.firstName)'s sibling") { onAddPerson(.sibling(of: person)) }
-            addButton("Link to someone already in the tree") { showLinkSheet = true }
+            // All add/link entry points are hidden for a viewer.
+            if !isReadOnly {
+                addButton("Add \(person.firstName)'s parent") { onAddPerson(.parent(of: person)) }
+                addButton("Add \(person.firstName)'s partner") { onAddPerson(.partner(of: person)) }
+                addButton("Add \(person.firstName)'s child") { onAddPerson(.child(of: person)) }
+                addButton("Add \(person.firstName)'s sibling") { onAddPerson(.sibling(of: person)) }
+                addButton("Link to someone already in the tree") { showLinkSheet = true }
+            }
         }
     }
 
@@ -223,7 +235,7 @@ struct PersonSheetView: View {
                     onSeeFamily(relative.id)
                     dismiss()
                 },
-                onDelete: canUnlink ? { unlink(relative) } : nil
+                onDelete: (canUnlink && !isReadOnly) ? { unlink(relative) } : nil
             )
         }
     }
@@ -238,27 +250,42 @@ struct PersonSheetView: View {
 
     // MARK: - Story
 
+    @ViewBuilder
     private var storySection: some View {
-        NavigationLink {
-            PersonEditView(person: person, focusBio: true)
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Story")
-                    .font(.headline)
-                if let bio = person.bio, !bio.isEmpty {
+        // A viewer sees the story read-only (no tap-through to the editor), and
+        // only when there's a story to show.
+        if isReadOnly {
+            if let bio = person.bio, !bio.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Story")
+                        .font(.headline)
                     Text(bio)
                         .font(.body)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text("Add a story about \(person.firstName)")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .contentShape(Rectangle())
+        } else {
+            NavigationLink {
+                PersonEditView(person: person, focusBio: true)
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Story")
+                        .font(.headline)
+                    if let bio = person.bio, !bio.isEmpty {
+                        Text(bio)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text("Add a story about \(person.firstName)")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Delete
