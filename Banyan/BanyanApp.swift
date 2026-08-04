@@ -14,6 +14,8 @@ struct BanyanApp: App {
     @State private var syncService: SyncService
     // The owner-side sharing service, injected via the environment (keypath).
     private let shareService: any ShareServiceProtocol
+    // The viewer-side invite service, injected via the environment (keypath).
+    private let inviteAcceptanceService: any InviteAcceptanceServiceProtocol
 
     init() {
         // One shared client at the composition root — injected into auth, the
@@ -37,6 +39,7 @@ struct BanyanApp: App {
         ))
 
         shareService = SupabaseShareService(client: client)
+        inviteAcceptanceService = SupabaseInviteAcceptanceService(client: client)
     }
 
     var body: some Scene {
@@ -45,6 +48,7 @@ struct BanyanApp: App {
                 .environment(authState)
                 .environment(syncService)
                 .environment(\.shareService, shareService)
+                .environment(\.inviteAcceptanceService, inviteAcceptanceService)
         }
         .modelContainer(for: BanyanSchemaV1.models)
     }

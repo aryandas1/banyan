@@ -15,6 +15,7 @@ struct TreeTabView: View {
     /// share sheet. Auth supplies the signed-in owner id.
     @Environment(AuthStateManager.self) private var authState
     @Environment(\.shareService) private var shareService
+    @Environment(\.isReadOnly) private var isReadOnly
     @State private var showShareSheet = false
 
     /// Shared across the tab's lifetime — stateless, so one instance is enough for every
@@ -46,14 +47,17 @@ struct TreeTabView: View {
     }
 
     /// Whether the Share flow has everything it needs (valid tree id, signed-in
-    /// user, injected service). Gates the toolbar button so it never opens an
-    /// empty sheet.
+    /// user, injected service) and this isn't a read-only shared tree. Gates the
+    /// toolbar button so a viewer can't share, and it never opens an empty sheet.
     private var canShare: Bool {
-        UUID(uuidString: treeIdString) != nil && authState.userId != nil && shareService != nil
+        !isReadOnly && UUID(uuidString: treeIdString) != nil
+            && authState.userId != nil && shareService != nil
     }
 
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
+            if isReadOnly { ViewOnlyBanner() }
             Group {
                 if let vm = threeGenViewModel,
                    treePeople.contains(where: { $0.id == focalPersonId }) {
@@ -112,16 +116,19 @@ struct TreeTabView: View {
                 setUpIfPossible()
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showShareSheet = true
-                    } label: {
-                        Label("Share", systemImage: "person.badge.plus")
+                // Hidden entirely for a viewer — a read-only tree can't be shared.
+                if !isReadOnly {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showShareSheet = true
+                        } label: {
+                            Label("Share", systemImage: "person.badge.plus")
+                        }
+                        .frame(minWidth: 44, minHeight: 44)
+                        // Gate the button on the same preconditions the sheet needs, so
+                        // it can never present an empty sheet.
+                        .disabled(!canShare)
                     }
-                    .frame(minWidth: 44, minHeight: 44)
-                    // Gate the button on the same preconditions the sheet needs, so
-                    // it can never present an empty sheet.
-                    .disabled(!canShare)
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -138,6 +145,7 @@ struct TreeTabView: View {
                         )
                     )
                 }
+            }
             }
         }
     }

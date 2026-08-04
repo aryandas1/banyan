@@ -1,29 +1,57 @@
 // MainTabView.swift
-// The three-tab shell shown once onboarding is complete.
-// Every tab item carries a text label as well as an icon — this app's users rely on labels.
+// The three-tab shell shown once onboarding is complete — or, for a viewer, once
+// a shared tree has been accepted. Every tab item carries a text label as well as
+// an icon — this app's users rely on labels.
+//
+// The tree centres on the "root" person. For an owner that's their own
+// ownerPersonId; a viewer never onboarded, so in read-only mode the root is the
+// focal ViewerRootPicker chose for the shared tree (see ViewerStore).
 
 import SwiftUI
 
 struct MainTabView: View {
     @AppStorage("ownerPersonId") private var ownerPersonIdString: String = ""
+    @AppStorage("treeId") private var treeIdString: String = ""
+    @Environment(\.isReadOnly) private var isReadOnly
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.inviteAcceptanceService) private var inviteService
 
-    /// The owner's id, resolved from storage. Falls back to the all-zero UUID if storage is
-    /// somehow malformed — the tab still renders rather than crashing.
-    private var ownerPersonId: UUID {
-        UUID(uuidString: ownerPersonIdString) ?? .placeholder
+    /// The person the tree centres on. Owner: their own id from storage. Viewer:
+    /// the stored focal for the shared tree. Falls back to the all-zero UUID if
+    /// neither resolves — the tab still renders rather than crashing.
+    private var rootPersonId: UUID {
+        if isReadOnly,
+           let treeId = UUID(uuidString: treeIdString),
+           let root = ViewerStore().rootPersonId(forTree: treeId) {
+            return root
+        }
+        return UUID(uuidString: ownerPersonIdString) ?? .placeholder
     }
 
     var body: some View {
         TabView {
-            TreeTabView(ownerPersonId: ownerPersonId)
+            TreeTabView(ownerPersonId: rootPersonId)
                 .tabItem { Label("Tree", systemImage: "person.3.fill") }
 
-            PeopleListView(ownerPersonId: ownerPersonId)
+            PeopleListView(ownerPersonId: rootPersonId)
                 .tabItem { Label("People", systemImage: "list.bullet") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
+        .task { await refreshSharedTreeIfViewer() }
+    }
+
+    /// For a viewer, re-pull the shared tree on launch so they see the owner's
+    /// latest. Best-effort: a revoked viewer's pull is blocked by RLS and simply
+    /// leaves the last-synced local copy in place.
+    private func refreshSharedTreeIfViewer() async {
+        guard isReadOnly,
+              let treeId = UUID(uuidString: treeIdString),
+              let inviteService,
+              let snapshot = try? await inviteService.fetchSharedTree(treeId: treeId)
+        else { return }
+        _ = try? SharedTreeImporter().importTree(snapshot, treeId: treeId, into: modelContext)
     }
 }
 
