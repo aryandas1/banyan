@@ -60,10 +60,12 @@ struct PersonSheetView: View {
 
                 familySection
 
-                Section {
-                    storySection
+                if showsStory {
+                    Section {
+                        storySection
+                    }
+                    .listRowSeparator(.hidden)
                 }
-                .listRowSeparator(.hidden)
 
                 if canDelete && !isReadOnly {
                     Section {
@@ -249,6 +251,12 @@ struct PersonSheetView: View {
     }
 
     // MARK: - Story
+
+    /// The owner always sees the Story block (to add/edit); a viewer only when
+    /// there's actually a story, so read-only never renders an empty Section.
+    private var showsStory: Bool {
+        !isReadOnly || !(person.bio ?? "").isEmpty
+    }
 
     @ViewBuilder
     private var storySection: some View {

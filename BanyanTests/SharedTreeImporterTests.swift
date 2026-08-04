@@ -139,4 +139,69 @@ struct SharedTreeImporterTests {
         #expect(root != child)
         #expect(root == parent || root == snapshot.persons[1].id) // parent or partner
     }
+
+    // MARK: - Orphan pruning (re-pull reflects the owner's deletions)
+
+    @Test func removesPersonDeletedFromSnapshot() throws {
+        // Given a family already imported once
+        let context = try makeContext()
+        let treeId = UUID()
+        let (snapshot, _, child) = familySnapshot(treeId: treeId)
+        _ = try SharedTreeImporter().importTree(snapshot, treeId: treeId, into: context)
+
+        // When the owner deletes the child and the viewer re-pulls (child + its link gone)
+        let withoutChild = SharedTreeSnapshot(
+            persons: snapshot.persons.filter { $0.id != child },
+            unions: snapshot.unions,
+            links: snapshot.links.filter { $0.personId != child }
+        )
+        _ = try SharedTreeImporter().importTree(withoutChild, treeId: treeId, into: context)
+
+        // Then the child (and its cascaded link) are gone — no ghost rows
+        let childId = child
+        #expect(try context.fetch(
+            FetchDescriptor<Person>(predicate: #Predicate { $0.id == childId })
+        ).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<Person>()).count == 2)
+        #expect(try context.fetch(FetchDescriptor<PersonUnionLink>()).count == 2)
+    }
+
+    @Test func removesUnlinkedLinkWhenEndpointsSurvive() throws {
+        // Given a family already imported once
+        let context = try makeContext()
+        let treeId = UUID()
+        let (snapshot, _, child) = familySnapshot(treeId: treeId)
+        _ = try SharedTreeImporter().importTree(snapshot, treeId: treeId, into: context)
+
+        // When the owner unlinks the child but the child stays in the tree
+        let unlinked = SharedTreeSnapshot(
+            persons: snapshot.persons,
+            unions: snapshot.unions,
+            links: snapshot.links.filter { $0.personId != child }
+        )
+        _ = try SharedTreeImporter().importTree(unlinked, treeId: treeId, into: context)
+
+        // Then only the removed link is pruned; all three people remain
+        #expect(try context.fetch(FetchDescriptor<Person>()).count == 3)
+        #expect(try context.fetch(FetchDescriptor<PersonUnionLink>()).count == 2)
+    }
+
+    @Test func pruneIsScopedToTheImportedTree() throws {
+        // Given tree A already imported
+        let context = try makeContext()
+        let treeA = UUID(), treeB = UUID()
+        let (snapA, _, _) = familySnapshot(treeId: treeA)
+        _ = try SharedTreeImporter().importTree(snapA, treeId: treeA, into: context)
+
+        // When importing an unrelated tree B
+        let (snapB, _, _) = familySnapshot(treeId: treeB)
+        _ = try SharedTreeImporter().importTree(snapB, treeId: treeB, into: context)
+
+        // Then tree A's rows are untouched by tree B's prune pass
+        let a = treeA
+        #expect(try context.fetch(
+            FetchDescriptor<Person>(predicate: #Predicate { $0.treeId == a })
+        ).count == 3)
+        #expect(try context.fetch(FetchDescriptor<Person>()).count == 6)
+    }
 }

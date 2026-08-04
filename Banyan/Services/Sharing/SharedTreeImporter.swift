@@ -13,8 +13,10 @@ import SwiftData
 @MainActor
 struct SharedTreeImporter {
     /// Upserts persons, unions, then links (links reference the first two, so they
-    /// come last). Returns a chosen focal/root for the viewer, or nil for an empty
-    /// tree. Throws if a context write fails.
+    /// come last), then prunes local rows the snapshot no longer contains so a
+    /// viewer's re-pull reflects the owner's deletions/unlinks — not just additions.
+    /// Returns a chosen focal/root for the viewer, or nil for an empty tree. Throws
+    /// if a context write fails.
     @discardableResult
     func importTree(_ snapshot: SharedTreeSnapshot, treeId: UUID, into context: ModelContext) throws -> UUID? {
         try upsertPersons(snapshot.persons, into: context)
@@ -22,7 +24,42 @@ struct SharedTreeImporter {
         try context.save()
         try upsertLinks(snapshot.links, into: context)
         try context.save()
+        try pruneOrphans(snapshot, treeId: treeId, into: context)
         return ViewerRootPicker.pickRoot(persons: snapshot.persons, links: snapshot.links)
+    }
+
+    /// Deletes local rows for this tree that are absent from the snapshot: persons
+    /// and unions the owner removed (their links cascade away), then any link the
+    /// owner unlinked while both endpoints survived. Mirrors the owner-side
+    /// SyncService orphan cleanup, in the opposite direction.
+    private func pruneOrphans(_ snapshot: SharedTreeSnapshot, treeId: UUID, into context: ModelContext) throws {
+        let personIds = Set(snapshot.persons.map(\.id))
+        let unionIds = Set(snapshot.unions.map(\.id))
+        let linkIds = Set(snapshot.links.map(\.id))
+
+        let localPersons = try context.fetch(
+            FetchDescriptor<Person>(predicate: #Predicate { $0.treeId == treeId })
+        )
+        for person in localPersons where !personIds.contains(person.id) {
+            context.delete(person)   // cascades this person's links
+        }
+        let localUnions = try context.fetch(
+            FetchDescriptor<Union>(predicate: #Predicate { $0.treeId == treeId })
+        )
+        for union in localUnions where !unionIds.contains(union.id) {
+            context.delete(union)    // cascades this union's links
+        }
+        try context.save()
+
+        // Re-fetch AFTER the save so cascade-deleted links (which linger in memory
+        // until save/refetch) don't reappear here; scope by the linked person's
+        // tree since PersonUnionLink has no treeId of its own. What remains and is
+        // still absent from the snapshot is an unlink whose endpoints survived.
+        let localLinks = try context.fetch(FetchDescriptor<PersonUnionLink>())
+        for link in localLinks where link.person?.treeId == treeId && !linkIds.contains(link.id) {
+            context.delete(link)
+        }
+        try context.save()
     }
 
     private func upsertPersons(_ dtos: [PersonDTO], into context: ModelContext) throws {
