@@ -12,6 +12,7 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # Gating check: the unit suite (fast, deterministic).
   build-and-test:
     runs-on: macos-latest
 
@@ -19,13 +20,12 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Create placeholder Supabase config
-      # Supabase.plist is gitignored (see SupabaseConfig.swift), so it's absent on
-      # CI. The test bundle is hosted in the app, so launching the test host runs
-      # BanyanApp.init → SupabaseConfig.url, which fatalErrors without it and
-      # crashes the host before any test runs. The anon key is public-by-design and
-      # the tests never touch the network (all mocked), so placeholder values that
-      # satisfy SupabaseConfig's guards (valid URL, non-empty non-sentinel key) are
-      # all CI needs. Must exist before `xcodegen generate` so it's bundled.
+      # Supabase.plist is gitignored (see SupabaseConfig.swift) so it's absent on CI.
+      # The test bundle is hosted in the app, so launching the test host runs
+      # BanyanApp.init → SupabaseConfig.url, which fatalErrors without it and crashes
+      # before any test. The anon key is public-by-design and tests never hit the
+      # network, so placeholder values that satisfy the guards are all CI needs.
+      # Must exist before `xcodegen generate` so it's bundled.
       run: |
         cat > Banyan/Supabase.plist <<'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
@@ -59,6 +59,51 @@ jobs:
         echo "Testing on simulator $UDID"
         xcodebuild test \
           -scheme Banyan \
+          -sdk iphonesimulator \
+          -destination "id=$UDID" \
+          CODE_SIGNING_ALLOWED=NO
+
+  # Non-gating check: the hermetic XCUITest suite. Kept in its own job (its own
+  # status check) so simulator UI-automation flake never fails the unit gate.
+  # Leave this check OUT of required checks in branch protection.
+  ui-tests:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create placeholder Supabase config
+      run: |
+        cat > Banyan/Supabase.plist <<'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>SupabaseURL</key>
+          <string>https://placeholder.supabase.co</string>
+          <key>SupabaseAnonKey</key>
+          <string>ci-placeholder-anon-key</string>
+        </dict>
+        </plist>
+        EOF
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      run: xcodegen generate
+
+    - name: UI tests
+      run: |
+        UDID=$(xcrun simctl list --json devices available \
+          | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+        if [ -z "$UDID" ] || [ "$UDID" = "null" ]; then
+          echo "No iPhone simulator available on the runner" >&2
+          exit 1
+        fi
+        echo "UI testing on simulator $UDID"
+        xcodebuild test \
+          -scheme BanyanUITests \
           -sdk iphonesimulator \
           -destination "id=$UDID" \
           CODE_SIGNING_ALLOWED=NO
