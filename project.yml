@@ -76,3 +76,21 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aryandas.BanyanTests
         GENERATE_INFOPLIST_FILE: YES
+
+  # UI tests live in their own target + scheme so they stay OUT of the fast,
+  # coverage-gated unit run (`make coverage` uses the Banyan scheme). Run with
+  # `xcodebuild test -scheme BanyanUITests …`.
+  BanyanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: BanyanUITests
+    dependencies:
+      - target: Banyan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aryandas.BanyanUITests
+        GENERATE_INFOPLIST_FILE: YES
+    scheme:
+      testTargets:
+        - BanyanUITests
