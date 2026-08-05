@@ -16,8 +16,45 @@ struct BanyanApp: App {
     private let shareService: any ShareServiceProtocol
     // The viewer-side invite service, injected via the environment (keypath).
     private let inviteAcceptanceService: any InviteAcceptanceServiceProtocol
+    // The SwiftData store. Normally the default persistent container; a UI-test
+    // launch (DEBUG only) swaps in an in-memory seeded one.
+    private let modelContainer: ModelContainer
 
     init() {
+        #if DEBUG
+        // Hermetic UI-test path: stubbed auth/invite + a seeded in-memory store,
+        // so a viewer's read-only UI can be exercised with no network. Compiled
+        // out of release builds (see UITestSupport).
+        if UITestSupport.isViewerLaunch {
+            let auth = AuthStateManager(authService: UITestAuthService())
+            _authState = State(initialValue: auth)
+            let client = SupabaseClientProvider.makeClient()
+            _syncService = State(initialValue: SyncService(
+                remote: SupabaseRemoteStore(client: client),
+                currentUserId: { auth.userId ?? UUID() }
+            ))
+            shareService = SupabaseShareService(client: client)
+            inviteAcceptanceService = UITestInviteService()
+            modelContainer = UITestSupport.makeSeededViewerContainer()
+            return
+        }
+        if UITestSupport.isAcceptFlowLaunch {
+            // Clean signed-in state + a stub service that accepts successfully, so
+            // the deep-link acceptance sheet runs end to end with no network.
+            let auth = AuthStateManager(authService: UITestAuthService())
+            _authState = State(initialValue: auth)
+            let client = SupabaseClientProvider.makeClient()
+            _syncService = State(initialValue: SyncService(
+                remote: SupabaseRemoteStore(client: client),
+                currentUserId: { auth.userId ?? UUID() }
+            ))
+            shareService = SupabaseShareService(client: client)
+            inviteAcceptanceService = UITestAcceptInviteService()
+            modelContainer = UITestSupport.makeEmptyContainer()
+            return
+        }
+        #endif
+
         // One shared client at the composition root — injected into auth, the
         // remote store, the sync closure, and the share service (no singletons;
         // CLAUDE.md).
@@ -40,6 +77,7 @@ struct BanyanApp: App {
 
         shareService = SupabaseShareService(client: client)
         inviteAcceptanceService = SupabaseInviteAcceptanceService(client: client)
+        modelContainer = BanyanApp.makeDefaultContainer()
     }
 
     var body: some Scene {
@@ -50,6 +88,16 @@ struct BanyanApp: App {
                 .environment(\.shareService, shareService)
                 .environment(\.inviteAcceptanceService, inviteAcceptanceService)
         }
-        .modelContainer(for: BanyanSchemaV1.models)
+        .modelContainer(modelContainer)
+    }
+
+    /// The default persistent container from the versioned schema — the explicit
+    /// equivalent of `.modelContainer(for:)`, so a UI-test launch can substitute
+    /// an in-memory one through the same `modelContainer` property.
+    private static func makeDefaultContainer() -> ModelContainer {
+        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV1.models)) else {
+            fatalError("Failed to create the SwiftData container.")
+        }
+        return container
     }
 }

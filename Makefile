@@ -40,6 +40,12 @@ build: generate
 test: generate
 	xcodebuild test -scheme $(SCHEME) -sdk iphonesimulator -destination '$(DEST)' $(ONLY)
 
+## uitest: run the XCUITest suite (hermetic, own scheme; not in the coverage gate)
+.PHONY: uitest
+uitest: generate
+	xcrun simctl uninstall "$(SIM)" $(BUNDLE_ID) 2>/dev/null || true
+	xcodebuild test -scheme BanyanUITests -sdk iphonesimulator -destination '$(DEST)'
+
 ## coverage: run tests with coverage; gate meaningful files at COV_MIN% (default 80)
 .PHONY: coverage
 coverage: generate
