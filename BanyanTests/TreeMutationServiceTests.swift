@@ -5,6 +5,7 @@
 import Foundation
 import SwiftData
 import Testing
+import UIKit
 @testable import Banyan
 
 @Suite("TreeMutationService")
@@ -341,6 +342,27 @@ struct TreeMutationServiceTests {
 
         // Then the owner has no children left
         #expect(graphService.children(of: owner).isEmpty)
+    }
+
+    @Test func deletePersonRemovesTheirPhotoFilesFromDisk() throws {
+        // Given a person with a photo file actually written to disk
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { ctx in
+            UIColor.gray.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        }
+        let filename = try #require(PhotoStorageService.save(image))
+        let photo = PersonPhoto(treeId: person.treeId, personId: person.id, filename: filename)
+        builder.context.insert(photo)
+        photo.person = person
+        #expect(PhotoStorageService.load(filename: filename) != nil)
+
+        // When the person is deleted
+        try service.deletePerson(person, in: builder.context)
+
+        // Then the backing file is gone, not just the SwiftData row
+        #expect(PhotoStorageService.load(filename: filename) == nil)
     }
 
     @Test func deletePersonPrunesOrphanedParentUnion() throws {

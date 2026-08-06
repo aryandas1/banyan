@@ -16,7 +16,7 @@ struct SharedTreeImporterTests {
 
     private func makeContext() throws -> ModelContext {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Schema(BanyanSchemaV1.models), configurations: config)
+        let container = try ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config)
         let context = ModelContext(container)
         context.autosaveEnabled = false
         return context

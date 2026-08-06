@@ -6,6 +6,7 @@
 
 import Foundation
 import UIKit
+import ImageIO
 
 struct PhotoStorageService {
     private static var documentsURL: URL {
@@ -32,5 +33,38 @@ struct PhotoStorageService {
     /// Deletes the file for a filename. Silent if absent.
     static func delete(filename: String) {
         try? FileManager.default.removeItem(at: documentsURL.appendingPathComponent(filename))
+    }
+
+    // MARK: - EXIF
+
+    /// Reads the capture year/month from image bytes via EXIF (falling back to
+    /// the TIFF DateTime), or nil when no usable date is present. The ImageIO
+    /// read is here; the string parsing is factored into `parseExifDateString`
+    /// so it can be unit-tested without a real image.
+    static func extractTakenDate(from data: Data) -> (year: Int, month: Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+
+        let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any]
+        let tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+
+        let raw = (exif?[kCGImagePropertyExifDateTimeOriginal] as? String)
+            ?? (tiff?[kCGImagePropertyTIFFDateTime] as? String)
+
+        guard let raw else { return nil }
+        return parseExifDateString(raw)
+    }
+
+    /// Parses an EXIF datetime string ("YYYY:MM:DD HH:MM:SS") into a year/month
+    /// pair, or nil if it isn't a plausible date (year after 1800, month 1–12).
+    static func parseExifDateString(_ raw: String) -> (year: Int, month: Int)? {
+        let parts = raw.split(separator: ":")
+        guard parts.count >= 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
+              year > 1800, (1...12).contains(month)
+        else { return nil }
+        return (year: year, month: month)
     }
 }

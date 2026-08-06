@@ -192,7 +192,16 @@ final class TreeMutationService: TreeMutationServiceProtocol {
                 return !hasOtherPartner && remainingChildren < 2
             }
 
-        context.delete(person)   // cascades person.links
+        // The cascade removes the PersonPhoto rows but not their backing files —
+        // the image bytes live in the documents directory, not SwiftData. Capture
+        // the filenames before the delete detaches them, then remove the files.
+        let photoFilenames = person.photos.map(\.filename)
+
+        context.delete(person)   // cascades person.links and person.photos
+
+        for filename in photoFilenames {
+            PhotoStorageService.delete(filename: filename)
+        }
 
         for union in orphanedUnions {
             context.delete(union)   // cascades the union's remaining (child) links

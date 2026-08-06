@@ -91,11 +91,18 @@ struct BanyanApp: App {
         .modelContainer(modelContainer)
     }
 
-    /// The default persistent container from the versioned schema — the explicit
-    /// equivalent of `.modelContainer(for:)`, so a UI-test launch can substitute
-    /// an in-memory one through the same `modelContainer` property.
+    /// The default persistent container from the current (V2) schema — the
+    /// explicit equivalent of `.modelContainer(for:)`, so a UI-test launch can
+    /// substitute an in-memory one through the same `modelContainer` property.
+    ///
+    /// No explicit `SchemaMigrationPlan`: a frozen V1 stage would reuse the live
+    /// `Person` type, which now declares `@Relationship var photos`, so SwiftData
+    /// auto-discovers `PersonPhoto` and V1 resolves to the same models as V2 —
+    /// a two-stage plan then collides on identical checksums. SwiftData's own
+    /// inferred lightweight migration handles the additive change instead, and
+    /// with no shipped users a bespoke stage isn't warranted (see BanyanSchemaV2).
     private static func makeDefaultContainer() -> ModelContainer {
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV1.models)) else {
+        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models)) else {
             fatalError("Failed to create the SwiftData container.")
         }
         return container

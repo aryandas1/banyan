@@ -12,7 +12,7 @@ struct TestTreeBuilder {
 
     init() throws {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        container = try ModelContainer(for: Schema(BanyanSchemaV1.models), configurations: config)
+        container = try ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config)
         context = ModelContext(container)
         context.autosaveEnabled = false  // required — prevents background writes interfering with tests
     }
