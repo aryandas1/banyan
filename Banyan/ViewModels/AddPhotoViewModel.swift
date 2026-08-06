@@ -26,7 +26,6 @@ final class AddPhotoViewModel {
 
     // Inputs
     var selectedImage: UIImage?
-    var selectedImageData: Data?   // raw bytes for EXIF extraction
     var caption: String
     var takenYearText: String
     var takenMonthText: String
@@ -48,7 +47,6 @@ final class AddPhotoViewModel {
 
     init(setAsProfilePhoto: Bool = false) {
         self.selectedImage = nil
-        self.selectedImageData = nil
         self.caption = ""
         self.takenYearText = ""
         self.takenMonthText = ""
@@ -62,7 +60,6 @@ final class AddPhotoViewModel {
     /// auto-fills year/month from the image's EXIF metadata.
     func onImageSelected(image: UIImage, data: Data?) {
         selectedImage = image
-        selectedImageData = data
         if takenYearText.isEmpty,
            let data,
            let date = PhotoStorageService.extractTakenDate(from: data) {
@@ -97,7 +94,9 @@ final class AddPhotoViewModel {
             takenMonth: takenMonth,
             takenPlace: takenPlace.trimmingCharacters(in: .whitespaces).nonEmptyOrNil,
             isProfilePhoto: isProfile,
-            sortOrder: person.photos.count
+            // One past the current max, so ordering survives deletions (count would
+            // collide with an existing sortOrder once any earlier photo is removed).
+            sortOrder: (person.photos.map(\.sortOrder).max() ?? -1) + 1
         )
 
         // Insert before wiring the relationship (SwiftData insert-before-link rule).

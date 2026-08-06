@@ -44,7 +44,10 @@ final class PersonSheetViewModel {
             let image = await Task.detached(priority: .userInitiated) {
                 PhotoStorageService.load(filename: filename)
             }.value
-            self?.profileImage = image
+            // Ignore a stale load: a newer refresh() may have changed the profile
+            // photo while this read was in flight — don't paint the old image over it.
+            guard let self, self.person.profilePhoto?.filename == filename else { return }
+            self.profileImage = image
         }
     }
 }

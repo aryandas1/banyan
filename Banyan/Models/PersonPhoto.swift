@@ -58,12 +58,15 @@ final class PersonPhoto {
         self.person = nil
     }
 
+    /// Localized month names, computed once rather than per `takenDateDisplay` call.
+    private static let monthSymbols = DateFormatter().monthSymbols ?? []
+
     /// A human-readable "when taken" line: "June 1967", "1967", or nil when no
     /// year is recorded. Month is only shown when the year is present.
     var takenDateDisplay: String? {
         guard let year = takenYear else { return nil }
         if let month = takenMonth,
-           let monthName = DateFormatter().monthSymbols?[safe: month - 1] {
+           let monthName = Self.monthSymbols[safe: month - 1] {
             return "\(monthName) \(year)"
         }
         return String(year)
