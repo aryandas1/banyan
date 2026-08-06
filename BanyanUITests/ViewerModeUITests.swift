@@ -60,5 +60,9 @@ final class ViewerModeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Edit"].exists, "a viewer must not see Edit")
         XCTAssertFalse(app.buttons["Add Ravi's parent"].exists, "a viewer must not see add-relative buttons")
         XCTAssertFalse(app.buttons["Delete Ravi"].exists, "a viewer must not see Delete")
+        // The photo gallery is read-only for a viewer: no add-photo control, and the
+        // avatar can't be tapped to change the profile photo.
+        XCTAssertFalse(app.buttons["Add photo"].exists, "a viewer must not see the add-photo control")
+        XCTAssertFalse(app.buttons["Change profile photo"].exists, "a viewer must not be able to change the profile photo")
     }
 }

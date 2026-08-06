@@ -36,7 +36,7 @@ struct PersonRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .task(id: person.profilePhotoFilename) { await loadPhoto() }
+        .task(id: person.profilePhoto?.filename) { await loadPhoto() }
     }
 
     private var avatar: some View {
@@ -62,7 +62,7 @@ struct PersonRowView: View {
     /// Loads the stored profile photo off the main thread; keeps the initials placeholder
     /// when the person has no photo.
     private func loadPhoto() async {
-        guard let filename = person.profilePhotoFilename else {
+        guard let filename = person.profilePhoto?.filename else {
             photo = nil
             return
         }

@@ -24,13 +24,14 @@ final class Person {
     var deathPlace: String?
     /// A stand-in for an unrecorded person, e.g. an unnamed parent needed to attach a union.
     var isPlaceholder: Bool
-    /// Filename within the app's documents directory — not a UUID, not a full path.
-    var profilePhotoFilename: String?
     var bio: String?
     var createdAt: Date
 
     @Relationship(deleteRule: .cascade, inverse: \PersonUnionLink.person)
     var links: [PersonUnionLink]
+
+    @Relationship(deleteRule: .cascade, inverse: \PersonPhoto.person)
+    var photos: [PersonPhoto]
 
     init(
         id: UUID = UUID(),
@@ -43,7 +44,6 @@ final class Person {
         birthPlace: String? = nil,
         deathPlace: String? = nil,
         isPlaceholder: Bool = false,
-        profilePhotoFilename: String? = nil,
         bio: String? = nil,
         createdAt: Date = Date()
     ) {
@@ -57,10 +57,17 @@ final class Person {
         self.birthPlace = birthPlace
         self.deathPlace = deathPlace
         self.isPlaceholder = isPlaceholder
-        self.profilePhotoFilename = profilePhotoFilename
         self.bio = bio
         self.createdAt = createdAt
         self.links = []
+        self.photos = []
+    }
+
+    /// The photo to show as this person's avatar: the one flagged as profile, or
+    /// else the first by sort order. Nil when the person has no photos.
+    var profilePhoto: PersonPhoto? {
+        photos.first(where: { $0.isProfilePhoto })
+            ?? photos.sorted(by: { $0.sortOrder < $1.sortOrder }).first
     }
 
     /// First and last name joined, collapsing to whichever part is present.

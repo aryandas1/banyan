@@ -5,7 +5,6 @@
 
 import SwiftUI
 import SwiftData
-import PhotosUI
 
 struct PersonSheetView: View {
     @Environment(\.modelContext) private var modelContext
@@ -17,8 +16,9 @@ struct PersonSheetView: View {
     @State private var showDeleteConfirmation = false
     @State private var showLinkSheet = false
     @State private var deleteError: Error?
-    @State private var pickerItem: PhotosPickerItem?
-    @State private var photoImage: UIImage?
+    @State private var showAddProfilePhoto = false
+    @State private var showAddPhoto = false
+    @State private var photoSelection: PhotoSelection?
 
     private let isFocal: Bool      // hide "See their family" when already focal
     private let canDelete: Bool    // false for the tree owner — see TreeTabView
@@ -59,6 +59,8 @@ struct PersonSheetView: View {
                 .listRowSeparator(.hidden)
 
                 familySection
+
+                photosSection
 
                 if showsStory {
                     Section {
@@ -108,9 +110,14 @@ struct PersonSheetView: View {
                 )
             }
         }
-        .task(id: person.profilePhotoFilename) { await loadPhoto() }
-        .onChange(of: pickerItem) { _, newItem in
-            Task { await adoptPickedPhoto(newItem) }
+        .sheet(isPresented: $showAddProfilePhoto, onDismiss: { sheetVM.refresh() }) {
+            AddPhotoView(person: person, preselectAsProfilePhoto: true)
+        }
+        .sheet(isPresented: $showAddPhoto, onDismiss: { sheetVM.refresh() }) {
+            AddPhotoView(person: person)
+        }
+        .sheet(item: $photoSelection, onDismiss: { sheetVM.refresh() }) { selection in
+            PhotoDetailView(photos: selection.photos, currentIndex: selection.startIndex)
         }
     }
 
@@ -118,15 +125,7 @@ struct PersonSheetView: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            // A viewer can't change the photo — show it without the picker.
-            if isReadOnly {
-                photoCircle
-            } else {
-                PhotosPicker(selection: $pickerItem, matching: .images) {
-                    photoCircle
-                }
-                .buttonStyle(.plain)
-            }
+            avatarButton
 
             Text(person.fullName)
                 .font(.title2)
@@ -140,24 +139,44 @@ struct PersonSheetView: View {
         }
     }
 
-    private var photoCircle: some View {
-        Group {
-            if let photoImage {
-                Image(uiImage: photoImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Color(.systemGray5)
-                    .overlay(
+    /// The 96pt avatar. Tapping opens the add-photo sheet to set a new profile
+    /// photo — disabled (and the camera badge hidden) for a read-only viewer.
+    private var avatarButton: some View {
+        Button {
+            showAddProfilePhoto = true
+        } label: {
+            Circle()
+                .fill(Color(.systemGray5))
+                .frame(width: 96, height: 96)
+                .overlay {
+                    if let image = sheetVM.profileImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .clipShape(Circle())
+                    } else {
                         Text(person.initials)
                             .font(.title)
                             .fontWeight(.semibold)
                             .foregroundStyle(.secondary)
-                    )
-            }
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if !isReadOnly {
+                        Image(systemName: "camera.fill")
+                            .font(.caption)
+                            .padding(6)
+                            .background(Color(.systemBackground))
+                            .clipShape(Circle())
+                            .shadow(radius: 2)
+                            .offset(x: 4, y: 4)
+                    }
+                }
         }
-        .frame(width: 96, height: 96)
-        .clipShape(Circle())
+        .buttonStyle(.plain)
+        .frame(minWidth: 44, minHeight: 44)
+        .disabled(isReadOnly)
+        .accessibilityLabel(isReadOnly ? "Profile photo" : "Change profile photo")
     }
 
     // MARK: - Actions
@@ -250,6 +269,40 @@ struct PersonSheetView: View {
         syncService.scheduleSync(treeId: person.treeId, context: modelContext)
     }
 
+    // MARK: - Photos
+
+    @ViewBuilder
+    private var photosSection: some View {
+        let sorted = person.photos.sorted(by: { $0.sortOrder < $1.sortOrder })
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Photos")
+                    .font(.headline)
+                    .padding(.horizontal, 16)
+
+                if sorted.isEmpty && isReadOnly {
+                    Text("No photos added yet.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                } else {
+                    PhotoGalleryView(
+                        photos: sorted,
+                        canAdd: !isReadOnly,
+                        onAddPhoto: { showAddPhoto = true },
+                        onSelectPhoto: { photo in
+                            let index = sorted.firstIndex(where: { $0.id == photo.id }) ?? 0
+                            photoSelection = PhotoSelection(id: photo.id, photos: sorted, startIndex: index)
+                        }
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+        .listRowSeparator(.hidden)
+    }
+
     // MARK: - Story
 
     /// The owner always sees the Story block (to add/edit); a viewer only when
@@ -269,6 +322,7 @@ struct PersonSheetView: View {
                         .font(.headline)
                     Text(bio)
                         .font(.body)
+                        .lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -282,6 +336,7 @@ struct PersonSheetView: View {
                     if let bio = person.bio, !bio.isEmpty {
                         Text(bio)
                             .font(.body)
+                            .lineLimit(3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         Text("Add a story about \(person.firstName)")
@@ -328,37 +383,6 @@ struct PersonSheetView: View {
         }
     }
 
-    // MARK: - Photo I/O
-
-    /// Loads the stored profile photo off the synchronous main path.
-    private func loadPhoto() async {
-        guard let filename = person.profilePhotoFilename else {
-            photoImage = nil
-            return
-        }
-        let image = await Task.detached { PhotoStorageService.load(filename: filename) }.value
-        // Guard against a stale load: if the filename changed (e.g. a new photo was picked)
-        // while this load was in flight, the .task was cancelled — don't overwrite the new image.
-        guard !Task.isCancelled else { return }
-        photoImage = image
-    }
-
-    /// Persists a freshly picked photo and points the person at the new file.
-    private func adoptPickedPhoto(_ item: PhotosPickerItem?) async {
-        guard let item,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
-        guard let filename = await Task.detached(operation: { PhotoStorageService.save(image) }).value
-        else { return }
-
-        if let old = person.profilePhotoFilename {
-            PhotoStorageService.delete(filename: old)
-        }
-        person.profilePhotoFilename = filename
-        try? modelContext.save()
-        photoImage = image
-    }
-
     // MARK: - Derived text
 
     /// The birth/death summary line under the name.
@@ -384,4 +408,13 @@ struct PersonSheetView: View {
             set: { if !$0 { deleteError = nil } }
         )
     }
+}
+
+/// Identifies which photo gallery to open full-screen and where to start.
+/// A plain value type so `.sheet(item:)` has an unambiguous `Identifiable` id
+/// (a SwiftData `@Model`'s `id` is ambiguous for that overload).
+private struct PhotoSelection: Identifiable {
+    let id: UUID
+    let photos: [PersonPhoto]
+    let startIndex: Int
 }

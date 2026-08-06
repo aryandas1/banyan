@@ -33,7 +33,7 @@ enum UITestSupport {
             UserDefaults.standard.removeObject(forKey: key)
         }
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV1.models), configurations: config) else {
+        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
             fatalError("UITestSupport: failed to build the empty in-memory container.")
         }
         return container
@@ -48,7 +48,7 @@ enum UITestSupport {
         ViewerStore().addViewerTree(treeId, rootPersonId: rootId)
 
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV1.models), configurations: config) else {
+        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
             fatalError("UITestSupport: failed to build the seeded in-memory container.")
         }
         let context = ModelContext(container)
