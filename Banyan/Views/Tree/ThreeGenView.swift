@@ -128,10 +128,10 @@ struct ThreeGenView: View {
         if siblings.count > maxVisibleSiblings {
             Text("+\(siblings.count - 2) more")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BanyanTheme.Color.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color(.systemGray6)))
+                .background(Capsule().fill(BanyanTheme.Color.separator))
         }
     }
 
@@ -144,9 +144,9 @@ struct ThreeGenView: View {
                         Text("+\(threeGenVM.focalPartners.count - 1)")
                             .font(.caption2)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BanyanTheme.Color.textSecondary)
                             .padding(5)
-                            .background(Circle().fill(Color(.systemGray5)))
+                            .background(Circle().fill(BanyanTheme.Color.chrome))
                             .offset(x: 8, y: -8)
                     }
                 }

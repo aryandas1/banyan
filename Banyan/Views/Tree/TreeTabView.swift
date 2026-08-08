@@ -147,6 +147,7 @@ struct TreeTabView: View {
                 }
             }
             }
+            .background(BanyanTheme.Color.background)
         }
     }
 

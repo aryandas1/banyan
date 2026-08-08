@@ -77,6 +77,8 @@ struct PersonSheetView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(BanyanTheme.Color.surface)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -110,6 +112,9 @@ struct PersonSheetView: View {
                 )
             }
         }
+        // System drag handle instead of a hand-rolled capsule — the body is a
+        // List, which no custom top element slots into cleanly.
+        .presentationDragIndicator(.visible)
         .sheet(isPresented: $showAddProfilePhoto, onDismiss: { sheetVM.refresh() }) {
             AddPhotoView(person: person, preselectAsProfilePhoto: true)
         }
@@ -130,11 +135,12 @@ struct PersonSheetView: View {
             Text(person.fullName)
                 .font(.title2)
                 .fontWeight(.bold)
+                .foregroundStyle(BanyanTheme.Color.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text(lifespanLine)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BanyanTheme.Color.textSecondary)
                 .multilineTextAlignment(.center)
         }
     }
@@ -146,7 +152,7 @@ struct PersonSheetView: View {
             showAddProfilePhoto = true
         } label: {
             Circle()
-                .fill(Color(.systemGray5))
+                .fill(BanyanTheme.avatarColor(for: person.id))
                 .frame(width: 96, height: 96)
                 .overlay {
                     if let image = sheetVM.profileImage {
@@ -157,16 +163,17 @@ struct PersonSheetView: View {
                     } else {
                         Text(person.initials)
                             .font(.title)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
                     }
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if !isReadOnly {
                         Image(systemName: "camera.fill")
                             .font(.caption)
+                            .foregroundStyle(BanyanTheme.Color.textSecondary)
                             .padding(6)
-                            .background(Color(.systemBackground))
+                            .background(BanyanTheme.Color.surface)
                             .clipShape(Circle())
                             .shadow(radius: 2)
                             .offset(x: 4, y: 4)
@@ -189,9 +196,13 @@ struct PersonSheetView: View {
                     dismiss()
                 } label: {
                     Text("See their family")
-                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
+                        .background(BanyanTheme.Color.primary)
+                        .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
             }
 
             // All add/link entry points are hidden for a viewer.
@@ -208,11 +219,12 @@ struct PersonSheetView: View {
     private func addButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(.systemGray4), lineWidth: 1.5)
-                )
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(BanyanTheme.Color.primary)
+                .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
+                .background(BanyanTheme.Color.primaryTint)
+                .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
         }
         .buttonStyle(.plain)
     }
@@ -235,7 +247,7 @@ struct PersonSheetView: View {
             } header: {
                 Text("Family")
                     .font(.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
                     .textCase(nil)
             }
             .listRowSeparator(.hidden)
@@ -278,12 +290,13 @@ struct PersonSheetView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Photos")
                     .font(.headline)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
                     .padding(.horizontal, 16)
 
                 if sorted.isEmpty && isReadOnly {
                     Text("No photos added yet.")
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                         .padding(.horizontal, 16)
                 } else {
                     PhotoGalleryView(
@@ -320,11 +333,15 @@ struct PersonSheetView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Story")
                         .font(.headline)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
                     Text(bio)
                         .font(.body)
                         .lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .padding(16)
+                .background(BanyanTheme.Color.background)
+                .clipShape(.rect(cornerRadius: BanyanTheme.Radius.card))
             }
         } else {
             NavigationLink {
@@ -333,6 +350,7 @@ struct PersonSheetView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Story")
                         .font(.headline)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
                     if let bio = person.bio, !bio.isEmpty {
                         Text(bio)
                             .font(.body)
@@ -341,10 +359,13 @@ struct PersonSheetView: View {
                     } else {
                         Text("Add a story about \(person.firstName)")
                             .font(.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BanyanTheme.Color.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .padding(16)
+                .background(BanyanTheme.Color.background)
+                .clipShape(.rect(cornerRadius: BanyanTheme.Radius.card))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -358,7 +379,8 @@ struct PersonSheetView: View {
             showDeleteConfirmation = true
         } label: {
             Text("Delete \(person.firstName)")
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .font(.body)
+                .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.minimum)
         }
         .confirmationDialog(
             "Delete \(person.firstName)?",

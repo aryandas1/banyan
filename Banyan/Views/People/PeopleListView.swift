@@ -54,11 +54,15 @@ struct PeopleListView: View {
                             }
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .listRowSeparator(.hidden)
+                            .listRowBackground(BanyanTheme.Color.background)
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(BanyanTheme.Color.background)
                 }
             }
+            .background(BanyanTheme.Color.background)
             .navigationTitle("People")
             .searchable(text: $query, prompt: "Search by name")
             .onAppear { rebuildLabelCache() }

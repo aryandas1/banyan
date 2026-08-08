@@ -21,16 +21,17 @@ struct PersonRowView: View {
                     Text(person.fullName)
                         .font(.body)
                         .fontWeight(.medium)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
                     Text(relationshipLabel)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                 }
 
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(BanyanTheme.Color.textTertiary)
             }
             .frame(minHeight: 56)
             .contentShape(Rectangle())
@@ -46,12 +47,12 @@ struct PersonRowView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Color(.systemGray5)
+                BanyanTheme.avatarColor(for: person.id)
                     .overlay(
                         Text(person.initials)
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white)
                     )
             }
         }

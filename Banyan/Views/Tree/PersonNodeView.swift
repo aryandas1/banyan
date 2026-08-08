@@ -1,14 +1,17 @@
 // PersonNodeView.swift
-// A tappable card for one person in the tree canvas.
+// A tappable card for one person in the tree canvas: avatar circle (photo or
+// deterministic-color initials), first name, birth year.
 
 import SwiftUI
 
 /// Fixed node dimensions shared by every tree node — the connector layer
 /// computes edge positions from these, so they must never vary per node.
 enum NodeMetrics {
-    static let width: CGFloat = 80
-    static let height: CGFloat = 88
-    static let cornerRadius: CGFloat = 12
+    static let width: CGFloat = 88
+    static let height: CGFloat = 112
+    static let cornerRadius: CGFloat = BanyanTheme.Radius.node
+    /// Diameter of the avatar circle inside every node.
+    static let avatarSize: CGFloat = 62
 }
 
 struct PersonNodeView: View {
@@ -16,54 +19,86 @@ struct PersonNodeView: View {
     let isFocal: Bool
     let onTap: () -> Void
 
+    @State private var photo: UIImage?
+
+    private var avatarColor: Color {
+        BanyanTheme.avatarColor(for: person.id)
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 4) {
-                initialsCircle
+                avatarCircle
 
                 Text(person.firstName)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.footnote)
+                    .fontWeight(.semibold)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .foregroundStyle(isFocal ? Color(.systemBackground) : Color.primary)
+                    .foregroundStyle(isFocal ? BanyanTheme.Color.primary : BanyanTheme.Color.textPrimary)
 
                 if let year = person.birthDate?.year {
                     Text(String(year))
                         .font(.caption2)
-                        .foregroundStyle(isFocal ? Color(.systemBackground).opacity(0.7) : Color(.secondaryLabel))
+                        .foregroundStyle(BanyanTheme.Color.textTertiary)
                 }
             }
             .padding(.horizontal, 4)
             .frame(width: NodeMetrics.width, height: NodeMetrics.height)
             .background(
                 RoundedRectangle(cornerRadius: NodeMetrics.cornerRadius)
-                    .fill(isFocal ? Color.primary : Color(.systemBackground))
+                    .fill(isFocal ? BanyanTheme.Color.primaryTint : BanyanTheme.Color.surface)
                     .shadow(
-                        color: isFocal ? .clear : .black.opacity(0.06),
+                        color: isFocal ? .clear : BanyanTheme.Color.textPrimary.opacity(0.06),
                         radius: 4,
                         y: 2
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: NodeMetrics.cornerRadius)
-                    .stroke(isFocal ? Color.clear : Color(.systemGray4), lineWidth: 1.5)
+                    .stroke(
+                        isFocal ? BanyanTheme.Color.primary : BanyanTheme.Color.border,
+                        lineWidth: isFocal ? 2 : 1.5
+                    )
             )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(person.fullName)
         .accessibilityAddTraits(.isButton)
+        .task(id: person.profilePhoto?.filename) { await loadPhoto() }
     }
 
-    private var initialsCircle: some View {
+    private var avatarCircle: some View {
         Circle()
-            .fill(isFocal ? Color(.systemBackground).opacity(0.2) : Color(.systemGray6))
-            .frame(width: 36, height: 36)
-            .overlay(
-                Text(person.initials)
-                    .font(.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(isFocal ? Color(.systemBackground) : Color.primary)
-            )
+            .fill(avatarColor)
+            .frame(width: NodeMetrics.avatarSize, height: NodeMetrics.avatarSize)
+            .overlay {
+                if let photo {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: NodeMetrics.avatarSize, height: NodeMetrics.avatarSize)
+                        .clipShape(Circle())
+                } else {
+                    Text(person.initials)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                }
+            }
+    }
+
+    /// Loads the stored profile photo off the main thread; keeps the initials
+    /// avatar when there's none. Keyed by filename so a node reused as the tree
+    /// re-centres cancels its in-flight load instead of painting a stale face
+    /// (same pattern as PersonRowView).
+    private func loadPhoto() async {
+        guard let filename = person.profilePhoto?.filename else {
+            photo = nil
+            return
+        }
+        let loaded = await Task.detached { PhotoStorageService.load(filename: filename) }.value
+        guard !Task.isCancelled else { return }
+        photo = loaded
     }
 }

@@ -28,6 +28,8 @@ struct PersonEditView: View {
             statusSection
             storySection
         }
+        .scrollContentBackground(.hidden)
+        .background(BanyanTheme.Color.background)
         .navigationTitle("Edit")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
