@@ -44,7 +44,11 @@ struct SharedTreeImporter {
             FetchDescriptor<Person>(predicate: #Predicate { $0.treeId == treeId })
         )
         for person in localPersons where !personIds.contains(person.id) {
-            context.delete(person)   // cascades this person's links
+            // Cascade removes the person's PersonPhoto rows but not their files;
+            // drop the local files first so they don't leak (mirrors the owner-side
+            // TreeMutationService.deletePerson cleanup).
+            for photo in person.photos { PhotoStorageService.delete(filename: photo.filename) }
+            context.delete(person)   // cascades this person's links + photo rows
         }
         let localUnions = try context.fetch(
             FetchDescriptor<Union>(predicate: #Predicate { $0.treeId == treeId })

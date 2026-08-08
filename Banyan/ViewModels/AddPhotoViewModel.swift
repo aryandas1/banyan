@@ -88,6 +88,12 @@ final class AddPhotoViewModel {
         }
 
         let isProfile = setAsProfilePhoto || person.photos.isEmpty
+        // Photos that will lose their profile flag AND already exist remotely need
+        // their rows re-upserted too, else the backend keeps two is_profile_photo
+        // rows and a viewer's pull shows the wrong avatar. Captured before the flip.
+        let demotedProfiles = isProfile
+            ? person.photos.filter { $0.isProfilePhoto && $0.supabaseStoragePath != nil }
+            : []
         if isProfile {
             person.photos.forEach { $0.isProfilePhoto = false }
         }
@@ -111,28 +117,41 @@ final class AddPhotoViewModel {
         photo.person = person
         try context.save()
 
-        scheduleUpload(of: photo, image: image, photoSync: photoSync, in: context)
+        scheduleUpload(of: photo, image: image, demoted: demotedProfiles, photoSync: photoSync, in: context)
     }
 
     /// Uploads the saved photo's bytes+row in the background and, only on success,
-    /// records `supabaseStoragePath` on the model. The Task inherits this VM's
-    /// @MainActor isolation, so the model reads/writes stay on the main actor and
-    /// only Sendable values (the DTO + Data) cross into the network service.
+    /// records `supabaseStoragePath` on the model. Also re-upserts any `demoted`
+    /// previous profile photos so the backend keeps a single profile row. The Task
+    /// inherits this VM's @MainActor isolation, so the model reads/writes stay on
+    /// the main actor and only Sendable values (DTOs + Data) cross into the service.
     private func scheduleUpload(
         of photo: PersonPhoto,
         image: UIImage,
+        demoted: [PersonPhoto],
         photoSync: (any PhotoSyncServiceProtocol)?,
         in context: ModelContext
     ) {
-        guard let photoSync, let data = image.jpegData(compressionQuality: 0.8) else { return }
+        guard let photoSync else { return }
         let dto = PersonPhotoDTO(from: photo)
+        let imageData = image.jpegData(compressionQuality: 0.8)
+        // Build the demoted rows now (after the flag flip) so only Sendable DTOs,
+        // not @Models, cross into the Task.
+        let demotedDTOs = demoted.map(PersonPhotoDTO.init(from:))
         pendingUpload = Task {
-            do {
-                try await photoSync.upload(dto, imageData: data)
-                photo.supabaseStoragePath = dto.storagePath
-                try? context.save()
-            } catch {
-                // Non-fatal: the photo is saved locally; syncPending retries later.
+            if let imageData {
+                do {
+                    try await photoSync.upload(dto, imageData: imageData)
+                    photo.supabaseStoragePath = dto.storagePath
+                    try? context.save()
+                } catch {
+                    // Non-fatal: the photo is saved locally; syncPending retries later.
+                }
+            }
+            // Independent of the new upload's success — the old profile must be
+            // demoted remotely regardless.
+            for demotedDTO in demotedDTOs {
+                try? await photoSync.upsertMetadata(demotedDTO)
             }
         }
     }

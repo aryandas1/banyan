@@ -41,14 +41,19 @@ final class SupabaseInviteAcceptanceService: InviteAcceptanceServiceProtocol {
             .from("unions").select().eq("tree_id", value: treeId.uuidString).execute().value
         async let links: [PersonUnionLinkDTO] = client
             .from("person_union_links").select().eq("tree_id", value: treeId.uuidString).execute().value
-        async let photoDTOs: [PersonPhotoDTO] = client
+        async let photoRows: [PersonPhotoDTO] = client
             .from("person_photos").select().eq("tree_id", value: treeId.uuidString).execute().value
+
+        // Photos are secondary: a metadata read failure must NOT sink the whole
+        // pull (the core tree still loads), so default to none — matching the
+        // best-effort byte downloads below.
+        let photoDTOs = (try? await photoRows) ?? []
 
         // Download each photo's bytes best-effort (nil on failure — the metadata
         // still imports and the file self-heals on a later pull), so the importer
         // can apply everything without any networking of its own.
         var photos: [PhotoPayload] = []
-        for dto in try await photoDTOs {
+        for dto in photoDTOs {
             let data = try? await client.storage.from("photos").download(path: dto.storagePath)
             photos.append(PhotoPayload(dto: dto, imageData: data))
         }

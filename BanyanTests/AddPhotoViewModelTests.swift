@@ -205,6 +205,34 @@ struct AddPhotoViewModelTests {
         cleanUp(person)
     }
 
+    @Test func addingNewProfilePhotoReupsertsTheDemotedPreviousProfile() async throws {
+        // given a person whose first (uploaded) photo is the profile
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let mock = MockPhotoSyncService()
+        let first = AddPhotoViewModel()
+        first.onImageSelected(image: makeImage(), data: nil)
+        try await first.save(for: person, in: builder.context, photoSync: mock)
+        await first.awaitPendingUpload()
+        let firstPhoto = try #require(person.photos.first)
+        #expect(firstPhoto.supabaseStoragePath != nil)   // uploaded
+
+        // when a second photo is added AS the profile photo
+        let second = AddPhotoViewModel(setAsProfilePhoto: true)
+        second.onImageSelected(image: makeImage(), data: nil)
+        try await second.save(for: person, in: builder.context, photoSync: mock)
+        await second.awaitPendingUpload()
+
+        // then the demoted first photo's row is re-upserted with is_profile=false,
+        // so the backend doesn't keep two profile rows
+        #expect(!firstPhoto.isProfilePhoto)
+        let demotedUpsert = try #require(mock.upserts.first(where: { $0.id == firstPhoto.id }))
+        #expect(demotedUpsert.isProfilePhoto == false)
+        // and the new photo was uploaded as profile
+        #expect(mock.uploads.contains { $0.dto.isProfilePhoto && $0.dto.id != firstPhoto.id })
+        cleanUp(person)
+    }
+
     // MARK: - Parsing / EXIF
 
     @Test func yearParsedFromText() {

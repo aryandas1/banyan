@@ -287,6 +287,30 @@ struct SharedTreeImporterTests {
         #expect(PhotoStorageService.load(filename: filename) == nil)
     }
 
+    @Test func prunesPhotoFileWhenOwnerDeletesThePerson() throws {
+        // Given a person with a downloaded photo imported once
+        let context = try makeContext()
+        let treeId = UUID(), personId = UUID()
+        let payload = photoPayload(treeId: treeId, personId: personId, data: makeImageData())
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: [personDTO(personId, treeId: treeId, first: "Ravi")],
+                               unions: [], links: [], photos: [payload]),
+            treeId: treeId, into: context)
+        let saved = try #require(try context.fetch(FetchDescriptor<PersonPhoto>()).first)
+        let filename = saved.filename
+        #expect(PhotoStorageService.load(filename: filename) != nil)
+
+        // When the owner deletes the whole person and the viewer re-pulls empty
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: [], unions: [], links: [], photos: []),
+            treeId: treeId, into: context)
+
+        // Then the person + photo row cascade away AND the local file is not leaked
+        #expect(try context.fetch(FetchDescriptor<Person>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<PersonPhoto>()).isEmpty)
+        #expect(PhotoStorageService.load(filename: filename) == nil)
+    }
+
     @Test func pruneIsScopedToTheImportedTree() throws {
         // Given tree A already imported
         let context = try makeContext()
