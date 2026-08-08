@@ -40,7 +40,9 @@ struct PersonNodeView: View {
                 if let year = person.birthDate?.year {
                     Text(String(year))
                         .font(.caption2)
-                        .foregroundStyle(BanyanTheme.Color.textTertiary)
+                        // On the focal node's tinted fill, tertiary is too faint —
+                        // step up to secondary so the year stays legible.
+                        .foregroundStyle(isFocal ? BanyanTheme.Color.textSecondary : BanyanTheme.Color.textTertiary)
                 }
             }
             .padding(.horizontal, 4)
@@ -90,14 +92,9 @@ struct PersonNodeView: View {
 
     /// Loads the stored profile photo off the main thread; keeps the initials
     /// avatar when there's none. Keyed by filename so a node reused as the tree
-    /// re-centres cancels its in-flight load instead of painting a stale face
-    /// (same pattern as PersonRowView).
+    /// re-centres cancels its in-flight load instead of painting a stale face.
     private func loadPhoto() async {
-        guard let filename = person.profilePhoto?.filename else {
-            photo = nil
-            return
-        }
-        let loaded = await Task.detached { PhotoStorageService.load(filename: filename) }.value
+        let loaded = await ProfilePhotoLoader.load(for: person)
         guard !Task.isCancelled else { return }
         photo = loaded
     }

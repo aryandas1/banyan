@@ -61,15 +61,10 @@ struct PersonRowView: View {
     }
 
     /// Loads the stored profile photo off the main thread; keeps the initials placeholder
-    /// when the person has no photo.
+    /// when the person has no photo. The row may have been recycled or its filename changed
+    /// while loading, so don't paint a stale image over whatever the current .task now loads.
     private func loadPhoto() async {
-        guard let filename = person.profilePhoto?.filename else {
-            photo = nil
-            return
-        }
-        let loaded = await Task.detached { PhotoStorageService.load(filename: filename) }.value
-        // The row may have been recycled or its filename changed while loading; don't paint a
-        // stale image over whatever the current .task is now loading.
+        let loaded = await ProfilePhotoLoader.load(for: person)
         guard !Task.isCancelled else { return }
         photo = loaded
     }
