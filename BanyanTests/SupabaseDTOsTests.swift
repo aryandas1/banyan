@@ -160,6 +160,59 @@ struct SupabaseDTOsTests {
         #expect(dto.token == "c88e65ce-ac81-4d9b-87bf-fe30bc522b4b")
     }
 
+    // MARK: - PersonPhoto
+
+    @Test func personPhotoDTOMapsFieldsAndDerivesStoragePath() throws {
+        let treeId = UUID(), personId = UUID()
+        let photo = PersonPhoto(
+            treeId: treeId, personId: personId, filename: "local.jpg",
+            caption: "Wedding", takenYear: 1978, takenMonth: 6, takenPlace: "Pune",
+            isProfilePhoto: true, sortOrder: 2
+        )
+        let dto = PersonPhotoDTO(from: photo)
+
+        #expect(dto.id == photo.id)
+        #expect(dto.treeId == treeId)
+        #expect(dto.personId == personId)
+        #expect(dto.caption == "Wedding")
+        #expect(dto.takenYear == 1978)
+        #expect(dto.takenMonth == 6)
+        #expect(dto.takenPlace == "Pune")
+        #expect(dto.isProfilePhoto)
+        #expect(dto.sortOrder == 2)
+        // Path is derived from the ids, not the local filename.
+        #expect(dto.storagePath == "\(treeId.uuidString)/\(personId.uuidString)/\(photo.id.uuidString).jpg")
+        #expect(dto.storagePath == PersonPhotoDTO.storagePath(treeId: treeId, personId: personId, photoId: photo.id))
+    }
+
+    @Test func personPhotoDTOEncodesSnakeCaseColumns() throws {
+        // Populate the optionals so encodeIfPresent emits their keys.
+        let dto = PersonPhotoDTO(from: PersonPhoto(
+            treeId: UUID(), personId: UUID(), filename: "x.jpg",
+            caption: "c", takenYear: 1990, takenMonth: 6, takenPlace: "p"
+        ))
+        let json = String(decoding: try JSONEncoder().encode(dto), as: UTF8.self)
+
+        #expect(json.contains("\"tree_id\""))
+        #expect(json.contains("\"person_id\""))
+        #expect(json.contains("\"storage_path\""))
+        #expect(json.contains("\"taken_year\""))
+        #expect(json.contains("\"is_profile_photo\""))
+        #expect(json.contains("\"sort_order\""))
+        #expect(!json.contains("\"treeId\""))
+        #expect(!json.contains("\"storagePath\""))
+    }
+
+    @Test func personPhotoDTORoundTrips() throws {
+        let dto = PersonPhotoDTO(from: PersonPhoto(
+            treeId: UUID(), personId: UUID(), filename: "x.jpg",
+            caption: "c", takenYear: 1990, takenMonth: 12, takenPlace: "p",
+            isProfilePhoto: false, sortOrder: 3
+        ))
+        let decoded = try JSONDecoder().decode(PersonPhotoDTO.self, from: JSONEncoder().encode(dto))
+        #expect(decoded == dto)
+    }
+
     // MARK: - Viewer label
 
     @Test func viewerDTOLabelPrefersDisplayName() {

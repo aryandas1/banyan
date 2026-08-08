@@ -15,6 +15,7 @@ struct MainTabView: View {
     @Environment(\.isReadOnly) private var isReadOnly
     @Environment(\.modelContext) private var modelContext
     @Environment(\.inviteAcceptanceService) private var inviteService
+    @Environment(\.photoSyncService) private var photoSyncService
 
     /// The person the tree centres on. Owner: their own id from storage. Viewer:
     /// the stored focal for the shared tree. Falls back to the all-zero UUID if
@@ -39,16 +40,26 @@ struct MainTabView: View {
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
-        .task { await refreshSharedTreeIfViewer() }
+        .task { await syncPhotosOnLaunch() }
+    }
+
+    /// Launch photo reconciliation. A viewer re-pulls the shared tree (which now
+    /// carries photos); an owner retries any local photos that never finished
+    /// uploading. Both best-effort.
+    private func syncPhotosOnLaunch() async {
+        guard let treeId = UUID(uuidString: treeIdString) else { return }
+        if isReadOnly {
+            await refreshSharedTree(treeId: treeId)
+        } else if let photoSyncService {
+            await PhotoSyncCoordinator().uploadPending(treeId: treeId, in: modelContext, using: photoSyncService)
+        }
     }
 
     /// For a viewer, re-pull the shared tree on launch so they see the owner's
     /// latest. Best-effort: a revoked viewer's pull is blocked by RLS and simply
     /// leaves the last-synced local copy in place.
-    private func refreshSharedTreeIfViewer() async {
-        guard isReadOnly,
-              let treeId = UUID(uuidString: treeIdString),
-              let inviteService,
+    private func refreshSharedTree(treeId: UUID) async {
+        guard let inviteService,
               let snapshot = try? await inviteService.fetchSharedTree(treeId: treeId)
         else { return }
         _ = try? SharedTreeImporter().importTree(snapshot, treeId: treeId, into: modelContext)
