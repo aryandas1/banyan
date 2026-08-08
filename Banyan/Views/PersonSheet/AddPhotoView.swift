@@ -10,6 +10,7 @@ struct AddPhotoView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.photoSyncService) private var photoSync
 
     let person: Person
     let preselectAsProfilePhoto: Bool
@@ -60,7 +61,7 @@ struct AddPhotoView: View {
     private func save() {
         Task {
             do {
-                try await vm.save(for: person, in: context)
+                try await vm.save(for: person, in: context, photoSync: photoSync)
                 dismiss()
             } catch {
                 vm.saveError = error

@@ -9,6 +9,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 
 @MainActor
 struct SharedTreeImporter {
@@ -23,6 +24,8 @@ struct SharedTreeImporter {
         try upsertUnions(snapshot.unions, into: context)
         try context.save()
         try upsertLinks(snapshot.links, into: context)
+        try context.save()
+        try applyPhotos(snapshot.photos, into: context)
         try context.save()
         try pruneOrphans(snapshot, treeId: treeId, into: context)
         return ViewerRootPicker.pickRoot(persons: snapshot.persons, links: snapshot.links)
@@ -60,6 +63,80 @@ struct SharedTreeImporter {
             context.delete(link)
         }
         try context.save()
+
+        // Photos the owner removed (while the person survived — a deleted person's
+        // photos already cascaded above). Re-fetch AFTER the save so cascade-deleted
+        // rows don't linger here; drop the local file too, not just the row.
+        let photoIds = Set(snapshot.photos.map(\.dto.id))
+        let localPhotos = try context.fetch(
+            FetchDescriptor<PersonPhoto>(predicate: #Predicate { $0.treeId == treeId })
+        )
+        for photo in localPhotos where !photoIds.contains(photo.id) {
+            PhotoStorageService.delete(filename: photo.filename)
+            context.delete(photo)
+        }
+        try context.save()
+    }
+
+    /// Upserts a PersonPhoto per pulled payload: new rows get a fresh local file
+    /// from the downloaded bytes (when present); existing rows update their
+    /// metadata and re-fetch the file only if it's gone. A payload with no bytes
+    /// still lands its row (metadata shows; the file self-heals on a later pull).
+    private func applyPhotos(_ payloads: [PhotoPayload], into context: ModelContext) throws {
+        for payload in payloads {
+            let dto = payload.dto
+            let id = dto.id
+            let existing = try context.fetch(
+                FetchDescriptor<PersonPhoto>(predicate: #Predicate { $0.id == id })
+            ).first
+
+            if let photo = existing {
+                photo.caption             = dto.caption
+                photo.takenYear           = dto.takenYear
+                photo.takenMonth          = dto.takenMonth
+                photo.takenPlace          = dto.takenPlace
+                photo.isProfilePhoto      = dto.isProfilePhoto
+                photo.sortOrder           = dto.sortOrder
+                photo.supabaseStoragePath = dto.storagePath
+                if photo.filename.isEmpty || PhotoStorageService.load(filename: photo.filename) == nil,
+                   let filename = saveImage(payload.imageData) {
+                    photo.filename = filename
+                }
+            } else {
+                // The parent must have come through first (upserted above); skip an
+                // orphaned photo whose person isn't present.
+                let personId = dto.personId
+                guard let person = try context.fetch(
+                    FetchDescriptor<Person>(predicate: #Predicate { $0.id == personId })
+                ).first else { continue }
+
+                let photo = PersonPhoto(
+                    id: dto.id,
+                    treeId: dto.treeId,
+                    personId: dto.personId,
+                    filename: saveImage(payload.imageData) ?? "",
+                    supabaseStoragePath: dto.storagePath,
+                    caption: dto.caption,
+                    takenYear: dto.takenYear,
+                    takenMonth: dto.takenMonth,
+                    takenPlace: dto.takenPlace,
+                    isProfilePhoto: dto.isProfilePhoto,
+                    sortOrder: dto.sortOrder,
+                    createdAt: dto.createdAt
+                )
+                // Insert before wiring the relationship (SwiftData insert-before-link
+                // rule) so the parent's `photos` inverse is populated.
+                context.insert(photo)
+                photo.person = person
+            }
+        }
+    }
+
+    /// Writes downloaded bytes to the documents dir, returning the new filename, or
+    /// nil when there are no bytes / the decode fails.
+    private func saveImage(_ data: Data?) -> String? {
+        guard let data, let image = UIImage(data: data) else { return nil }
+        return PhotoStorageService.save(image)
     }
 
     private func upsertPersons(_ dtos: [PersonDTO], into context: ModelContext) throws {

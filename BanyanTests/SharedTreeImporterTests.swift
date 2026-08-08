@@ -6,6 +6,7 @@
 import Foundation
 import SwiftData
 import Testing
+import UIKit
 @testable import Banyan
 
 @MainActor
@@ -47,6 +48,22 @@ struct SharedTreeImporterTests {
                     linkDTO(UUID(), treeId: treeId, person: child, union: union, role: .child)]
         )
         return (snapshot, parent, child)
+    }
+
+    /// A few bytes of a real JPEG so PhotoStorageService.save/UIImage(data:) work.
+    private func makeImageData() -> Data {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8))
+        let image = renderer.image { ctx in
+            UIColor.systemTeal.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }
+        return image.jpegData(compressionQuality: 0.8) ?? Data()
+    }
+
+    /// A PhotoPayload for `personId`, deriving its DTO the production way.
+    private func photoPayload(treeId: UUID, personId: UUID, caption: String? = nil, data: Data?) -> PhotoPayload {
+        let model = PersonPhoto(treeId: treeId, personId: personId, filename: "", caption: caption)
+        return PhotoPayload(dto: PersonPhotoDTO(from: model), imageData: data)
     }
 
     // MARK: - Tests
@@ -184,6 +201,90 @@ struct SharedTreeImporterTests {
         // Then only the removed link is pruned; all three people remain
         #expect(try context.fetch(FetchDescriptor<Person>()).count == 3)
         #expect(try context.fetch(FetchDescriptor<PersonUnionLink>()).count == 2)
+    }
+
+    // MARK: - Photos
+
+    @Test func importsPhotoSavingBytesAndWiringToPerson() throws {
+        // Given a person and one pulled photo carrying bytes
+        let context = try makeContext()
+        let treeId = UUID(), personId = UUID()
+        let payload = photoPayload(treeId: treeId, personId: personId, caption: "Wedding", data: makeImageData())
+        let snapshot = SharedTreeSnapshot(
+            persons: [personDTO(personId, treeId: treeId, first: "Ravi")],
+            unions: [], links: [], photos: [payload]
+        )
+
+        // When importing
+        _ = try SharedTreeImporter().importTree(snapshot, treeId: treeId, into: context)
+
+        // Then the photo lands with a local file, its storage path, and its person
+        let photos = try context.fetch(FetchDescriptor<PersonPhoto>())
+        #expect(photos.count == 1)
+        let photo = try #require(photos.first)
+        #expect(photo.id == payload.dto.id)
+        #expect(photo.caption == "Wedding")
+        #expect(!photo.filename.isEmpty)                                  // bytes written to disk
+        #expect(PhotoStorageService.load(filename: photo.filename) != nil)
+        #expect(photo.supabaseStoragePath == payload.dto.storagePath)
+        #expect(photo.person?.id == personId)                            // inverse wired
+        let personId2 = personId
+        let person = try #require(try context.fetch(
+            FetchDescriptor<Person>(predicate: #Predicate { $0.id == personId2 })).first)
+        #expect(person.photos.count == 1)
+        PhotoStorageService.delete(filename: photo.filename)
+    }
+
+    @Test func reimportUpdatesPhotoMetadataWithoutDuplicating() throws {
+        // Given a photo imported once
+        let context = try makeContext()
+        let treeId = UUID(), personId = UUID()
+        let data = makeImageData()
+        let first = photoPayload(treeId: treeId, personId: personId, caption: "Old", data: data)
+        let persons = [personDTO(personId, treeId: treeId, first: "Ravi")]
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: persons, unions: [], links: [], photos: [first]),
+            treeId: treeId, into: context)
+
+        // When the caption changes remotely (same id) and no bytes are re-sent
+        let updatedDTO = PersonPhotoDTO(from: PersonPhoto(
+            id: first.dto.id, treeId: treeId, personId: personId, filename: "", caption: "New"))
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: persons, unions: [], links: [],
+                               photos: [PhotoPayload(dto: updatedDTO, imageData: nil)]),
+            treeId: treeId, into: context)
+
+        // Then the row updated in place — no duplicate, file preserved
+        let photos = try context.fetch(FetchDescriptor<PersonPhoto>())
+        #expect(photos.count == 1)
+        let photo = try #require(photos.first)
+        #expect(photo.caption == "New")
+        #expect(!photo.filename.isEmpty)
+        #expect(PhotoStorageService.load(filename: photo.filename) != nil)
+        PhotoStorageService.delete(filename: photo.filename)
+    }
+
+    @Test func prunesPhotoRemovedFromSnapshotAndDeletesFile() throws {
+        // Given a person with a photo imported once
+        let context = try makeContext()
+        let treeId = UUID(), personId = UUID()
+        let payload = photoPayload(treeId: treeId, personId: personId, data: makeImageData())
+        let persons = [personDTO(personId, treeId: treeId, first: "Ravi")]
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: persons, unions: [], links: [], photos: [payload]),
+            treeId: treeId, into: context)
+        let saved = try #require(try context.fetch(FetchDescriptor<PersonPhoto>()).first)
+        let filename = saved.filename
+        #expect(PhotoStorageService.load(filename: filename) != nil)
+
+        // When the owner deletes the photo (person survives) and the viewer re-pulls
+        _ = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: persons, unions: [], links: [], photos: []),
+            treeId: treeId, into: context)
+
+        // Then the row is gone and its local file was removed
+        #expect(try context.fetch(FetchDescriptor<PersonPhoto>()).isEmpty)
+        #expect(PhotoStorageService.load(filename: filename) == nil)
     }
 
     @Test func pruneIsScopedToTheImportedTree() throws {

@@ -194,6 +194,59 @@ struct ViewerDTO: Identifiable, Equatable {
     }
 }
 
+// MARK: - PersonPhoto
+
+/// A gallery photo's metadata row. The image bytes live in the `photos` Storage
+/// bucket; `storagePath` is that object's key, derived deterministically from the
+/// ids so it's stable across re-uploads (see `storagePath(treeId:personId:photoId:)`).
+struct PersonPhotoDTO: Codable, Equatable {
+    let id: UUID
+    let treeId: UUID
+    let personId: UUID
+    let storagePath: String
+    let caption: String?
+    let takenYear: Int?
+    let takenMonth: Int?
+    let takenPlace: String?
+    let isProfilePhoto: Bool
+    let sortOrder: Int
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case treeId         = "tree_id"
+        case personId       = "person_id"
+        case storagePath    = "storage_path"
+        case caption
+        case takenYear      = "taken_year"
+        case takenMonth     = "taken_month"
+        case takenPlace     = "taken_place"
+        case isProfilePhoto = "is_profile_photo"
+        case sortOrder      = "sort_order"
+        case createdAt      = "created_at"
+    }
+
+    init(from photo: PersonPhoto) {
+        self.id             = photo.id
+        self.treeId         = photo.treeId
+        self.personId       = photo.personId
+        self.storagePath    = Self.storagePath(treeId: photo.treeId, personId: photo.personId, photoId: photo.id)
+        self.caption        = photo.caption
+        self.takenYear      = photo.takenYear
+        self.takenMonth     = photo.takenMonth
+        self.takenPlace     = photo.takenPlace
+        self.isProfilePhoto = photo.isProfilePhoto
+        self.sortOrder      = photo.sortOrder
+        self.createdAt      = photo.createdAt
+    }
+
+    /// The Storage object key for a photo: "{tree_id}/{person_id}/{photo_id}.jpg".
+    /// The first segment is the tree id the Storage RLS policies check.
+    static func storagePath(treeId: UUID, personId: UUID, photoId: UUID) -> String {
+        "\(treeId.uuidString)/\(personId.uuidString)/\(photoId.uuidString).jpg"
+    }
+}
+
 // MARK: - ID-only helper (orphan detection)
 
 struct IDRow: Decodable {

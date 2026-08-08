@@ -6,13 +6,31 @@
 
 import Foundation
 
-/// A read-only snapshot of a shared tree pulled from the backend. Pure DTOs — no
-/// SwiftData — so the network layer never touches the (main-actor) ModelContext;
-/// a @MainActor importer applies these to the store separately.
+/// One pulled photo: its metadata row plus the downloaded image bytes (nil when
+/// the download failed — the metadata still applies and the file self-heals on a
+/// later pull). Bytes travel in the snapshot so the importer stays network-free.
+struct PhotoPayload: Equatable {
+    let dto: PersonPhotoDTO
+    let imageData: Data?
+}
+
+/// A read-only snapshot of a shared tree pulled from the backend. Pure DTOs (plus
+/// photo bytes) — no SwiftData — so the network layer never touches the
+/// (main-actor) ModelContext; a @MainActor importer applies these separately.
 struct SharedTreeSnapshot: Equatable {
     let persons: [PersonDTO]
     let unions: [UnionDTO]
     let links: [PersonUnionLinkDTO]
+    let photos: [PhotoPayload]
+
+    /// `photos` defaults to empty so the many existing (photo-free) call sites and
+    /// fixtures keep compiling; the pull fills it in.
+    init(persons: [PersonDTO], unions: [UnionDTO], links: [PersonUnionLinkDTO], photos: [PhotoPayload] = []) {
+        self.persons = persons
+        self.unions = unions
+        self.links = links
+        self.photos = photos
+    }
 }
 
 protocol InviteAcceptanceServiceProtocol: AnyObject {

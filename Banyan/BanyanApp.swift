@@ -16,6 +16,8 @@ struct BanyanApp: App {
     private let shareService: any ShareServiceProtocol
     // The viewer-side invite service, injected via the environment (keypath).
     private let inviteAcceptanceService: any InviteAcceptanceServiceProtocol
+    // The photo-sync service (upload/download bytes + rows), injected via keypath.
+    private let photoSyncService: any PhotoSyncServiceProtocol
     // The SwiftData store. Normally the default persistent container; a UI-test
     // launch (DEBUG only) swaps in an in-memory seeded one.
     private let modelContainer: ModelContainer
@@ -35,6 +37,7 @@ struct BanyanApp: App {
             ))
             shareService = SupabaseShareService(client: client)
             inviteAcceptanceService = UITestInviteService()
+            photoSyncService = PhotoSyncService(client: client)
             modelContainer = UITestSupport.makeSeededViewerContainer()
             return
         }
@@ -50,6 +53,7 @@ struct BanyanApp: App {
             ))
             shareService = SupabaseShareService(client: client)
             inviteAcceptanceService = UITestAcceptInviteService()
+            photoSyncService = PhotoSyncService(client: client)
             modelContainer = UITestSupport.makeEmptyContainer()
             return
         }
@@ -77,6 +81,7 @@ struct BanyanApp: App {
 
         shareService = SupabaseShareService(client: client)
         inviteAcceptanceService = SupabaseInviteAcceptanceService(client: client)
+        photoSyncService = PhotoSyncService(client: client)
         modelContainer = BanyanApp.makeDefaultContainer()
     }
 
@@ -87,6 +92,7 @@ struct BanyanApp: App {
                 .environment(syncService)
                 .environment(\.shareService, shareService)
                 .environment(\.inviteAcceptanceService, inviteAcceptanceService)
+                .environment(\.photoSyncService, photoSyncService)
         }
         .modelContainer(modelContainer)
     }

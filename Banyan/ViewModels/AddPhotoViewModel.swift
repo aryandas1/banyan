@@ -36,6 +36,10 @@ final class AddPhotoViewModel {
     var isSaving: Bool
     var saveError: Error?
 
+    /// The in-flight background upload of the just-saved photo, if any. Exposed so
+    /// tests can await it deterministically (mirrors SyncService.awaitPendingSync).
+    @ObservationIgnored private(set) var pendingUpload: Task<Void, Never>?
+
     /// The typed year as an Int, ignoring implausible values.
     var takenYear: Int? { Int(takenYearText).flatMap { $0 > 1800 ? $0 : nil } }
 
@@ -70,8 +74,11 @@ final class AddPhotoViewModel {
 
     /// Writes the image to disk and inserts a PersonPhoto for `person`. The first
     /// photo (or one the user marked) becomes the profile photo, unsetting any
-    /// prior profile photo. Throws if nothing is selected or the write fails.
-    func save(for person: Person, in context: ModelContext) async throws {
+    /// prior profile photo. Throws if nothing is selected or the write fails. Then
+    /// kicks a background upload via `photoSync` (nil in previews / when signed
+    /// out); the local save has already succeeded, so an upload failure is
+    /// non-fatal and the launch retry re-runs it.
+    func save(for person: Person, in context: ModelContext, photoSync: (any PhotoSyncServiceProtocol)?) async throws {
         guard let image = selectedImage else { throw PhotoSaveError.noImageSelected }
         isSaving = true
         defer { isSaving = false }
@@ -103,5 +110,36 @@ final class AddPhotoViewModel {
         context.insert(photo)
         photo.person = person
         try context.save()
+
+        scheduleUpload(of: photo, image: image, photoSync: photoSync, in: context)
+    }
+
+    /// Uploads the saved photo's bytes+row in the background and, only on success,
+    /// records `supabaseStoragePath` on the model. The Task inherits this VM's
+    /// @MainActor isolation, so the model reads/writes stay on the main actor and
+    /// only Sendable values (the DTO + Data) cross into the network service.
+    private func scheduleUpload(
+        of photo: PersonPhoto,
+        image: UIImage,
+        photoSync: (any PhotoSyncServiceProtocol)?,
+        in context: ModelContext
+    ) {
+        guard let photoSync, let data = image.jpegData(compressionQuality: 0.8) else { return }
+        let dto = PersonPhotoDTO(from: photo)
+        pendingUpload = Task {
+            do {
+                try await photoSync.upload(dto, imageData: data)
+                photo.supabaseStoragePath = dto.storagePath
+                try? context.save()
+            } catch {
+                // Non-fatal: the photo is saved locally; syncPending retries later.
+            }
+        }
+    }
+
+    /// Awaits the in-flight background upload, if any. Used by tests to assert the
+    /// upload deterministically; harmless in production.
+    func awaitPendingUpload() async {
+        await pendingUpload?.value
     }
 }

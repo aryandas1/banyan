@@ -10,6 +10,7 @@ struct PhotoDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isReadOnly) private var isReadOnly
+    @Environment(\.photoSyncService) private var photoSync
 
     let photos: [PersonPhoto]
     @State var currentIndex: Int
@@ -112,20 +113,11 @@ struct PhotoDetailView: View {
     }
 
     private func setAsProfile() {
-        photos.forEach { $0.isProfilePhoto = false }
-        current.isProfilePhoto = true
-        try? context.save()
+        PhotoActionsViewModel(photoSync: photoSync).setAsProfile(current, among: photos, in: context)
     }
 
     private func deletePhoto() {
-        let toDelete = current
-        // If we're deleting the profile photo, promote another so the person keeps an avatar.
-        if toDelete.isProfilePhoto {
-            photos.first(where: { $0.id != toDelete.id })?.isProfilePhoto = true
-        }
-        PhotoStorageService.delete(filename: toDelete.filename)
-        context.delete(toDelete)
-        try? context.save()
+        PhotoActionsViewModel(photoSync: photoSync).delete(current, among: photos, in: context)
         dismiss()
     }
 }
@@ -164,6 +156,7 @@ struct PhotoFullView: View {
 struct EditPhotoMetadataView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.photoSyncService) private var photoSync
 
     let photo: PersonPhoto
 
@@ -213,11 +206,14 @@ struct EditPhotoMetadataView: View {
     }
 
     private func save() {
-        photo.caption = caption.trimmingCharacters(in: .whitespaces).nonEmptyOrNil
-        photo.takenYear = Int(takenYearText).flatMap { $0 > 1800 ? $0 : nil }
-        photo.takenMonth = Int(takenMonthText).flatMap { (1...12).contains($0) ? $0 : nil }
-        photo.takenPlace = takenPlace.trimmingCharacters(in: .whitespaces).nonEmptyOrNil
-        try? context.save()
+        PhotoActionsViewModel(photoSync: photoSync).updateMetadata(
+            photo,
+            caption: caption,
+            yearText: takenYearText,
+            monthText: takenMonthText,
+            place: takenPlace,
+            in: context
+        )
         dismiss()
     }
 }

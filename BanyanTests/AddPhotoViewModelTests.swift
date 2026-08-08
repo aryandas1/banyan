@@ -38,7 +38,7 @@ struct AddPhotoViewModelTests {
         vm.onImageSelected(image: makeImage(), data: nil)
 
         // when
-        try await vm.save(for: person, in: builder.context)
+        try await vm.save(for: person, in: builder.context, photoSync: nil)
 
         // then
         #expect(person.photos.count == 1)
@@ -54,12 +54,12 @@ struct AddPhotoViewModelTests {
         let person = builder.makePerson(firstName: "Ravi")
         let first = AddPhotoViewModel()
         first.onImageSelected(image: makeImage(), data: nil)
-        try await first.save(for: person, in: builder.context)
+        try await first.save(for: person, in: builder.context, photoSync: nil)
 
         // when a second is added without the profile flag
         let second = AddPhotoViewModel(setAsProfilePhoto: false)
         second.onImageSelected(image: makeImage(), data: nil)
-        try await second.save(for: person, in: builder.context)
+        try await second.save(for: person, in: builder.context, photoSync: nil)
 
         // then it is not a profile photo, sorts after the first, and there is still one profile photo
         #expect(person.photos.count == 2)
@@ -77,13 +77,13 @@ struct AddPhotoViewModelTests {
         let person = builder.makePerson(firstName: "Ravi")
         let first = AddPhotoViewModel()
         first.onImageSelected(image: makeImage(), data: nil)
-        try await first.save(for: person, in: builder.context)
+        try await first.save(for: person, in: builder.context, photoSync: nil)
         let firstPhoto = try #require(person.photos.first)
 
         // when a second photo is saved as the profile photo
         let second = AddPhotoViewModel(setAsProfilePhoto: true)
         second.onImageSelected(image: makeImage(), data: nil)
-        try await second.save(for: person, in: builder.context)
+        try await second.save(for: person, in: builder.context, photoSync: nil)
 
         // then the flag moves to the new one and only one photo is profile
         let sorted = person.photos.sorted { $0.sortOrder < $1.sortOrder }
@@ -101,7 +101,7 @@ struct AddPhotoViewModelTests {
         vm.caption = "   "
         vm.takenPlace = ""
 
-        try await vm.save(for: person, in: builder.context)
+        try await vm.save(for: person, in: builder.context, photoSync: nil)
 
         let photo = try #require(person.photos.first)
         #expect(photo.caption == nil)
@@ -119,7 +119,7 @@ struct AddPhotoViewModelTests {
         vm.takenYearText = "1978"
         vm.takenMonthText = "6"
 
-        try await vm.save(for: person, in: builder.context)
+        try await vm.save(for: person, in: builder.context, photoSync: nil)
 
         let photo = try #require(person.photos.first)
         #expect(photo.caption == "Wedding day")
@@ -135,11 +135,74 @@ struct AddPhotoViewModelTests {
         let vm = AddPhotoViewModel()
 
         var thrown: Error?
-        do { try await vm.save(for: person, in: builder.context) }
+        do { try await vm.save(for: person, in: builder.context, photoSync: nil) }
         catch { thrown = error }
 
         #expect(thrown is PhotoSaveError)
         #expect(person.photos.isEmpty)
+    }
+
+    // MARK: - Upload trigger
+
+    @Test func saveUploadsPhotoAndRecordsStoragePath() async throws {
+        // given
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let mock = MockPhotoSyncService()
+        let vm = AddPhotoViewModel()
+        vm.onImageSelected(image: makeImage(), data: nil)
+
+        // when the local save succeeds and the background upload completes
+        try await vm.save(for: person, in: builder.context, photoSync: mock)
+        await vm.awaitPendingUpload()
+
+        // then the mock was asked to upload the saved photo, with its bytes,
+        let photo = try #require(person.photos.first)
+        #expect(mock.uploads.count == 1)
+        let uploaded = try #require(mock.uploads.first)
+        #expect(uploaded.dto.id == photo.id)
+        #expect(uploaded.dto.storagePath == PersonPhotoDTO.storagePath(
+            treeId: person.treeId, personId: person.id, photoId: photo.id))
+        #expect(!uploaded.imageData.isEmpty)
+        // and the successful upload's path was written back to the model.
+        #expect(photo.supabaseStoragePath == uploaded.dto.storagePath)
+        cleanUp(person)
+    }
+
+    @Test func saveWithoutSyncServiceStillSavesLocally() async throws {
+        // given no injected sync service (previews / signed out)
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let vm = AddPhotoViewModel()
+        vm.onImageSelected(image: makeImage(), data: nil)
+
+        // when
+        try await vm.save(for: person, in: builder.context, photoSync: nil)
+        await vm.awaitPendingUpload()
+
+        // then the photo is saved but nothing was uploaded and no path recorded
+        let photo = try #require(person.photos.first)
+        #expect(photo.supabaseStoragePath == nil)
+        cleanUp(person)
+    }
+
+    @Test func uploadFailureLeavesStoragePathNilForRetry() async throws {
+        // given a sync service that fails every upload
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let mock = MockPhotoSyncService()
+        mock.errorToThrow = URLError(.notConnectedToInternet)
+        let vm = AddPhotoViewModel()
+        vm.onImageSelected(image: makeImage(), data: nil)
+
+        // when the (non-fatal) upload fails
+        try await vm.save(for: person, in: builder.context, photoSync: mock)
+        await vm.awaitPendingUpload()
+
+        // then the local save stands and the path stays nil so syncPending retries
+        let photo = try #require(person.photos.first)
+        #expect(photo.supabaseStoragePath == nil)
+        cleanUp(person)
     }
 
     // MARK: - Parsing / EXIF
