@@ -65,6 +65,38 @@ struct ViewerStoreTests {
         #expect(store.rootPersonId(forTree: treeId) == nil)
     }
 
+    @Test func ownerTreeIsRecordedOnceAndDoesNotOverwrite() {
+        // Given an empty store
+        let (store, _) = makeStore()
+        #expect(store.ownerTreeId == nil)
+        let firstTree = UUID()
+        let secondTree = UUID()
+
+        // When the owner tree is set, then set again with a different id
+        store.setOwnerTree(firstTree)
+        store.setOwnerTree(secondTree)
+
+        // Then only the first id sticks (set-once) and isOwnedTree matches it alone
+        #expect(store.ownerTreeId == firstTree)
+        #expect(store.isOwnedTree(firstTree))
+        #expect(store.isOwnedTree(secondTree) == false)
+    }
+
+    @Test func ownerTreeIsIndependentOfViewerRegistration() {
+        // Given an owned tree
+        let (store, _) = makeStore()
+        let owned = UUID()
+        store.setOwnerTree(owned)
+
+        // When a *different* tree is joined as a viewer
+        store.addViewerTree(UUID(), rootPersonId: UUID())
+
+        // Then the owner marker is untouched and the owned tree is not a viewer tree
+        #expect(store.ownerTreeId == owned)
+        #expect(store.isOwnedTree(owned))
+        #expect(store.isViewer(treeId: owned) == false)
+    }
+
     @Test func persistingRecomputedRootHealsAnEmptyAccept() {
         // Given a tree accepted before the owner synced: viewer with a nil root
         let (store, defaults) = makeStore()

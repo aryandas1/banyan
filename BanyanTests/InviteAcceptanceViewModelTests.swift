@@ -83,6 +83,32 @@ struct InviteAcceptanceViewModelTests {
         #expect(try context.fetch(FetchDescriptor<Person>()).count == 1)
     }
 
+    @Test func ownerOpeningTheirOwnInviteSucceedsWithoutBecomingAViewer() async throws {
+        // Given a store that already owns the tree the invite points at
+        let treeId = UUID()
+        let service = MockInviteAcceptanceService()
+        service.treeIdToReturn = treeId
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(UUID(), treeId: treeId)], unions: [], links: []
+        )
+        let store = makeStore()
+        store.setOwnerTree(treeId)
+        let viewModel = makeViewModel(service: service, store: store)
+        let context = try makeContext()
+
+        // When the owner opens their own invite link
+        await viewModel.accept(token: "own-link", context: context)
+
+        // Then it lands on .success without downloading, importing, or registering
+        // this device as a viewer / overwriting the active tree.
+        #expect(viewModel.state == .success(treeId: treeId))
+        #expect(service.acceptedTokens == ["own-link"])
+        #expect(service.fetchedTreeIds.isEmpty)
+        #expect(store.viewerTreeIds.isEmpty)
+        #expect(store.isViewer(treeId: treeId) == false)
+        #expect(try context.fetch(FetchDescriptor<Person>()).isEmpty)
+    }
+
     @Test func acceptFailureEndsInFailureAndRecordsNothing() async throws {
         // Given a service whose RPC rejects the token
         let service = MockInviteAcceptanceService()

@@ -61,6 +61,22 @@ struct BanyanApp: App {
             modelContainer = UITestSupport.makeEmptyContainer()
             return
         }
+        if UITestSupport.isOwnerOwnInviteLaunch {
+            // Signed-in owner of the invited tree + a stub accept service that
+            // returns that same tree id, so the owner-opens-own-invite guard runs.
+            let auth = AuthStateManager(authService: UITestAuthService())
+            _authState = State(initialValue: auth)
+            let client = SupabaseClientProvider.makeClient()
+            _syncService = State(initialValue: SyncService(
+                remote: SupabaseRemoteStore(client: client),
+                currentUserId: { auth.userId ?? UUID() }
+            ))
+            shareService = SupabaseShareService(client: client)
+            inviteAcceptanceService = UITestAcceptInviteService()
+            photoSyncService = PhotoSyncService(client: client)
+            modelContainer = UITestSupport.makeSeededOwnerContainer()
+            return
+        }
         #endif
 
         // One shared client at the composition root — injected into auth, the

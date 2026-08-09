@@ -77,7 +77,7 @@ struct ContentView: View {
         // UI-test hook: present the acceptance sheet on launch (same path an
         // onOpenURL would take) so a test can assert it renders + completes.
         .task {
-            if UITestSupport.isAcceptFlowLaunch, pendingInvite == nil {
+            if UITestSupport.presentsAcceptSheetOnLaunch, pendingInvite == nil {
                 pendingInvite = PendingInvite(token: "uitest")
             }
         }

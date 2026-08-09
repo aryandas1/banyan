@@ -43,6 +43,12 @@ final class InviteAcceptanceViewModel {
         state = .accepting
         do {
             let treeId = try await service.acceptInvitation(token: token)
+            // Owner opened their own invite link: don't register as a viewer or
+            // overwrite the active tree, which would lock them into read-only mode.
+            if store.isOwnedTree(treeId) {
+                state = .success(treeId: treeId)
+                return
+            }
             state = .downloading
             let snapshot = try await service.fetchSharedTree(treeId: treeId)
             let rootPersonId = try importer.importTree(snapshot, treeId: treeId, into: context)
