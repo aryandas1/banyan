@@ -7,6 +7,7 @@ import SwiftData
 
 struct NameEntryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(SyncService.self) private var syncService
 
     @AppStorage("ownerPersonId") private var ownerPersonIdString: String = ""
     @AppStorage("treeId") private var treeIdString: String = ""
@@ -108,7 +109,8 @@ struct NameEntryView: View {
                 try await vm.save(
                     in: modelContext,
                     ownerIdStorage: $ownerPersonIdString,
-                    treeIdStorage: $treeIdString
+                    treeIdStorage: $treeIdString,
+                    sync: syncService
                 )
             } catch {
                 vm.saveError = error
