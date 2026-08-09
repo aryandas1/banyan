@@ -4,6 +4,7 @@
 // The suite is @MainActor because ShareViewModel is.
 
 import Foundation
+import SwiftData
 import Testing
 @testable import Banyan
 
@@ -15,10 +16,26 @@ struct ShareViewModelTests {
 
     private func makeViewModel(
         _ service: MockShareService,
+        sync: SyncScheduling? = nil,
         treeId: UUID = UUID(),
         userId: UUID = UUID()
     ) -> ShareViewModel {
-        ShareViewModel(shareService: service, treeId: treeId, userId: userId)
+        ShareViewModel(
+            shareService: service,
+            sync: sync ?? SpySyncScheduler(),
+            treeId: treeId,
+            userId: userId
+        )
+    }
+
+    /// An in-memory context — `createInvitation` needs one to hand to the sync seam
+    /// (the spy ignores it, so its contents don't matter).
+    private func makeContext() throws -> ModelContext {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config)
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        return context
     }
 
     private func aViewer(name: String? = nil) -> ViewerDTO {
@@ -85,7 +102,8 @@ struct ShareViewModelTests {
 
         // When creating an invitation
         service.tokenToReturn = "abc-123"
-        let token = try await viewModel.createInvitation(phoneNumber: "+91 98765 43210")
+        let token = try await viewModel.createInvitation(
+            phoneNumber: "+91 98765 43210", context: try makeContext())
 
         // Then the service was called with the right args and the token surfaced
         #expect(token == "abc-123")
@@ -100,27 +118,79 @@ struct ShareViewModelTests {
         #expect(service.fetchPendingCount == pendingBefore + 1)
     }
 
+    @Test func createInvitationForceSyncsTheTreeBeforeCreatingTheInvite() async throws {
+        // Given a view model wired to a sync spy and a tree id
+        let service = MockShareService()
+        let treeId = UUID()
+        let spy = SpySyncScheduler()
+        let viewModel = makeViewModel(service, sync: spy, treeId: treeId)
+        // Capture what the sync spy had recorded at the moment the invite is created.
+        var syncedNowAtCreateTime: [UUID] = []
+        service.onCreateInvitation = { syncedNowAtCreateTime = spy.syncedNowTreeIds }
+
+        // When creating an invitation
+        _ = try await viewModel.createInvitation(phoneNumber: "+1 555", context: try makeContext())
+
+        // Then the tree was force-synced exactly once, for this tree...
+        #expect(spy.syncedNowTreeIds == [treeId])
+        // ...and that force-sync had already happened by the time the invite was created
+        #expect(syncedNowAtCreateTime == [treeId])
+    }
+
+    @Test func createInvitationPushesLocalRowsToTheRealSyncSeamBeforeCreatingTheInvite() async throws {
+        // Given a real SyncService over a recording remote, and a tree with two
+        // local persons that have never been pushed.
+        let treeId = UUID()
+        let ownerId = UUID()
+        let context = try makeContext()
+        let alice = Person(treeId: treeId, firstName: "Alice")
+        let bob = Person(treeId: treeId, firstName: "Bob")
+        context.insert(alice)
+        context.insert(bob)
+        try context.save()
+
+        let remote = MockRemoteStore()
+        let realSync = SyncService(
+            remote: remote, currentUserId: { ownerId }, debounce: .seconds(2)
+        )
+        let service = MockShareService()
+        let viewModel = makeViewModel(service, sync: realSync, treeId: treeId, userId: ownerId)
+
+        // Snapshot what the remote had received at the moment the invite is created.
+        var personsPushedAtCreateTime: Set<UUID> = []
+        service.onCreateInvitation = { personsPushedAtCreateTime = remote.upsertedPersonIds }
+
+        // When creating an invitation
+        _ = try await viewModel.createInvitation(phoneNumber: "+1 555", context: context)
+
+        // Then both persons were already on the backend before the invite existed.
+        #expect(personsPushedAtCreateTime == [alice.id, bob.id])
+        #expect(remote.upsertedPersonIds == [alice.id, bob.id])
+        #expect(remote.upsertedTrees.first?.id == treeId)
+    }
+
     @Test func isCreatingInviteIsFalseAfterSuccessfulCreate() async throws {
         // Given a view model
         let service = MockShareService()
         let viewModel = makeViewModel(service)
 
         // When creating an invitation
-        _ = try await viewModel.createInvitation(phoneNumber: "+1 555")
+        _ = try await viewModel.createInvitation(phoneNumber: "+1 555", context: try makeContext())
 
         // Then the in-flight flag is reset
         #expect(viewModel.isCreatingInvite == false)
     }
 
-    @Test func isCreatingInviteIsResetWhenCreateThrows() async {
+    @Test func isCreatingInviteIsResetWhenCreateThrows() async throws {
         // Given a service that fails the create
         let service = MockShareService()
         service.errorToThrow = MockError()
         let viewModel = makeViewModel(service)
 
         // When the create throws
+        let context = try makeContext()
         await #expect(throws: MockError.self) {
-            _ = try await viewModel.createInvitation(phoneNumber: "+1 555")
+            _ = try await viewModel.createInvitation(phoneNumber: "+1 555", context: context)
         }
 
         // Then the defer still reset the in-flight flag
