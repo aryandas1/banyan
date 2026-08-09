@@ -4,11 +4,13 @@
 // forwards the link however they like.
 
 import SwiftUI
+import SwiftData
 
 struct InviteView: View {
 
     var viewModel: ShareViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var phoneNumber = ""
     @State private var showShareSheet = false
     @State private var inviteToken: String?
@@ -88,7 +90,7 @@ struct InviteView: View {
         // invites of the same number dedupe reliably.
         let trimmed = phoneNumber.trimmingCharacters(in: .whitespaces)
         do {
-            let token = try await viewModel.createInvitation(phoneNumber: trimmed)
+            let token = try await viewModel.createInvitation(phoneNumber: trimmed, context: modelContext)
             inviteToken = token
             showShareSheet = true
         } catch {

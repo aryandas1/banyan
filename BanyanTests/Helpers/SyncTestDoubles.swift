@@ -74,8 +74,13 @@ final class MockRemoteStore: RemoteStore {
 @MainActor
 final class SpySyncScheduler: SyncScheduling {
     private(set) var scheduledTreeIds: [UUID] = []
+    private(set) var syncedNowTreeIds: [UUID] = []
 
     func scheduleSync(treeId: UUID, context: ModelContext) {
         scheduledTreeIds.append(treeId)
+    }
+
+    func syncNow(treeId: UUID, context: ModelContext) async {
+        syncedNowTreeIds.append(treeId)
     }
 }

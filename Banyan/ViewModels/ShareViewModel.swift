@@ -5,6 +5,7 @@
 
 import Foundation
 import Observation
+import SwiftData
 
 @MainActor
 @Observable
@@ -24,11 +25,13 @@ final class ShareViewModel {
     private(set) var generatedToken: String?
 
     private let shareService: any ShareServiceProtocol
+    private let sync: any SyncScheduling
     private let treeId: UUID
     private let userId: UUID
 
-    init(shareService: any ShareServiceProtocol, treeId: UUID, userId: UUID) {
+    init(shareService: any ShareServiceProtocol, sync: any SyncScheduling, treeId: UUID, userId: UUID) {
         self.shareService = shareService
+        self.sync = sync
         self.treeId = treeId
         self.userId = userId
     }
@@ -47,11 +50,15 @@ final class ShareViewModel {
     }
 
     /// Creates an invitation and returns the invite token to embed in the share
-    /// sheet. Refreshes the lists on success. Rethrows so the caller can show an
-    /// inline error; `isCreatingInvite` is reset either way.
-    func createInvitation(phoneNumber: String) async throws -> String {
+    /// sheet. Force-syncs the tree to the backend first (blocking) so the viewer's
+    /// pull at accept time is never empty. Refreshes the lists on success. Rethrows
+    /// so the caller can show an inline error; `isCreatingInvite` is reset either way.
+    func createInvitation(phoneNumber: String, context: ModelContext) async throws -> String {
         isCreatingInvite = true
         defer { isCreatingInvite = false }
+        // Push the current tree before the invite exists, so an early acceptance
+        // pull sees the data immediately rather than only after a relaunch.
+        await sync.syncNow(treeId: treeId, context: context)
         let token = try await shareService.createInvitation(
             treeId: treeId,
             invitedBy: userId,

@@ -14,6 +14,7 @@ struct TreeTabView: View {
     /// Injected at the composition root; used to build a ShareViewModel for the
     /// share sheet. Auth supplies the signed-in owner id.
     @Environment(AuthStateManager.self) private var authState
+    @Environment(SyncService.self) private var syncService
     @Environment(\.shareService) private var shareService
     @Environment(\.isReadOnly) private var isReadOnly
     @State private var showShareSheet = false
@@ -140,6 +141,7 @@ struct TreeTabView: View {
                     ShareView(
                         viewModel: ShareViewModel(
                             shareService: shareService,
+                            sync: syncService,
                             treeId: treeId,
                             userId: userId
                         )

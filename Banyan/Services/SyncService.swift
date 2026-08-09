@@ -14,6 +14,9 @@ import SwiftData
 protocol SyncScheduling {
     /// Requests a (debounced) sync of `treeId`, reading local state from `context`.
     func scheduleSync(treeId: UUID, context: ModelContext)
+    /// Cancels any pending debounced sync and performs one immediately, awaiting it.
+    /// Best-effort like `scheduleSync` — never throws; records `lastSyncError` on failure.
+    func syncNow(treeId: UUID, context: ModelContext) async
 }
 
 @MainActor
@@ -55,6 +58,16 @@ final class SyncService: SyncScheduling {
             guard !Task.isCancelled else { return }
             await self.performSync(treeId: treeId, context: context)
         }
+    }
+
+    /// Cancels any pending debounced sync and performs one immediately, awaiting
+    /// it. Used to force the tree to the backend before an action that depends on
+    /// it being there (e.g. generating an invite link). Best-effort like
+    /// `performSync` — never throws; records `lastSyncError` on failure.
+    func syncNow(treeId: UUID, context: ModelContext) async {
+        pendingTask?.cancel()
+        pendingTask = nil
+        await performSync(treeId: treeId, context: context)
     }
 
     /// Awaits the in-flight debounced sync, if any. Used by tests to sync

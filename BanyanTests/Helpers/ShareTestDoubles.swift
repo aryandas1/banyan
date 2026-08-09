@@ -20,6 +20,9 @@ final class MockShareService: ShareServiceProtocol {
     private(set) var revokeCount = 0
     private(set) var createdInvitations: [(treeId: UUID, invitedBy: UUID, phoneNumber: String)] = []
     private(set) var revoked: [(treeId: UUID, userId: UUID)] = []
+    /// Invoked at the top of `createInvitation`, before it records the call — lets a
+    /// test snapshot other spies to assert ordering (e.g. that the force-sync ran first).
+    var onCreateInvitation: (() -> Void)?
 
     func fetchViewers(treeId: UUID) async throws -> [ViewerDTO] {
         fetchViewersCount += 1
@@ -34,6 +37,7 @@ final class MockShareService: ShareServiceProtocol {
     }
 
     func createInvitation(treeId: UUID, invitedBy: UUID, phoneNumber: String) async throws -> String {
+        onCreateInvitation?()
         createdInvitations.append((treeId, invitedBy, phoneNumber))
         if let errorToThrow { throw errorToThrow }
         return tokenToReturn
