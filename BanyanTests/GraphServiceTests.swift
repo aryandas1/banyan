@@ -215,4 +215,66 @@ struct GraphServiceTests {
         // Then they come back sorted by fullName
         #expect(people.map(\.fullName) == ["Anil Das", "Bina Das", "Chandra Das"])
     }
+
+    // MARK: - coParentableUnion
+
+    @Test func coParentableUnionFindsSingleOneParentChildedUnion() throws {
+        // Given a lone parent (one partner) with a child
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let dad = builder.makePerson(firstName: "Dad")
+        let kid = builder.makePerson(firstName: "Kid")
+        let union = builder.makeUnion()
+        builder.link(person: dad, to: union, role: .partner)
+        builder.link(person: kid, to: union, role: .child)
+
+        // Then that union is the one a new partner could co-parent
+        #expect(service.coParentableUnion(for: dad)?.id == union.id)
+    }
+
+    @Test func coParentableUnionNilWhenUnionAlreadyHasTwoPartners() throws {
+        // Given a child whose union already has both parents
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let dad = builder.makePerson(firstName: "Dad")
+        let mom = builder.makePerson(firstName: "Mom")
+        let kid = builder.makePerson(firstName: "Kid")
+        let union = builder.makeUnion()
+        builder.link(person: dad, to: union, role: .partner)
+        builder.link(person: mom, to: union, role: .partner)
+        builder.link(person: kid, to: union, role: .child)
+
+        // Then there is no lone-parent union to co-parent
+        #expect(service.coParentableUnion(for: dad) == nil)
+    }
+
+    @Test func coParentableUnionNilWhenNoChildren() throws {
+        // Given a childless partnership
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let dad = builder.makePerson(firstName: "Dad")
+        let union = builder.makeUnion()
+        builder.link(person: dad, to: union, role: .partner)
+
+        // Then nothing to co-parent
+        #expect(service.coParentableUnion(for: dad) == nil)
+    }
+
+    @Test func coParentableUnionNilWhenAmbiguous() throws {
+        // Given a lone parent across TWO separate childed unions
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let dad = builder.makePerson(firstName: "Dad")
+        let kidA = builder.makePerson(firstName: "KidA")
+        let kidB = builder.makePerson(firstName: "KidB")
+        let unionA = builder.makeUnion()
+        let unionB = builder.makeUnion()
+        builder.link(person: dad, to: unionA, role: .partner)
+        builder.link(person: kidA, to: unionA, role: .child)
+        builder.link(person: dad, to: unionB, role: .partner)
+        builder.link(person: kidB, to: unionB, role: .child)
+
+        // Then it's ambiguous — never assume which union to co-parent
+        #expect(service.coParentableUnion(for: dad) == nil)
+    }
 }

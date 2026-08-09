@@ -58,7 +58,10 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         return newParent
     }
 
-    /// Creates a person and links them as a partner of `anchorPerson` in a new union.
+    /// Creates a person and links them as a partner of `anchorPerson`. Normally a
+    /// new union; when `coParentExistingChildren` is true and the anchor has a
+    /// single one-parent union with children, the new partner joins that union
+    /// instead so they co-parent its existing children (the "second parent" case).
     @discardableResult
     func addPartner(
         to anchorPerson: Person,
@@ -67,6 +70,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
+        coParentExistingChildren: Bool = false,
         in context: ModelContext
     ) throws -> Person {
         let newPartner = makePerson(
@@ -79,10 +83,21 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         )
         context.insert(newPartner)
 
-        let union = Union(treeId: anchorPerson.treeId, type: .unknown)
-        context.insert(union)
-        makeLink(person: anchorPerson, union: union, role: .partner, in: context)
-        makeLink(person: newPartner, union: union, role: .partner, in: context)
+        // Join the anchor's existing childed union when asked (and one exists),
+        // so the new partner becomes a co-parent of its children; otherwise start
+        // a fresh union (a distinct relationship, e.g. a step-parent).
+        let coParentUnion = coParentExistingChildren
+            ? GraphService().coParentableUnion(for: anchorPerson)
+            : nil
+
+        if let coParentUnion {
+            makeLink(person: newPartner, union: coParentUnion, role: .partner, in: context)
+        } else {
+            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(union)
+            makeLink(person: anchorPerson, union: union, role: .partner, in: context)
+            makeLink(person: newPartner, union: union, role: .partner, in: context)
+        }
 
         try context.save()
         return newPartner

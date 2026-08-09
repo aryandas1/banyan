@@ -123,6 +123,81 @@ struct AddPersonViewModelTests {
         #expect(spy.scheduledTreeIds == [treeId])
     }
 
+    // MARK: - Co-parent question (adding a second parent via "add partner")
+
+    @Test func coParentQuestionAppliesWhenAddingPartnerToLoneParent() throws {
+        // Given "me" whose only parent so far is Dad
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try TreeMutationService().addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+
+        // When building the add-partner form for Dad
+        let vm = AddPersonViewModel(context: .partner(of: dad), mutationService: TreeMutationService())
+
+        // Then the co-parent question applies and names the existing child
+        #expect(vm.coParentQuestionApplies)
+        #expect(vm.coParentChildrenNames == "Me")
+    }
+
+    @Test func coParentQuestionDoesNotApplyWithoutExistingChildren() throws {
+        // Given a person with no children
+        let builder = try TestTreeBuilder()
+        let solo = builder.makePerson(firstName: "Solo")
+
+        // When building the add-partner form for them
+        let vm = AddPersonViewModel(context: .partner(of: solo), mutationService: TreeMutationService())
+
+        // Then there's nothing to co-parent, so no question
+        #expect(vm.coParentQuestionApplies == false)
+    }
+
+    @Test func savePartnerCoParentsWhenConfirmed() async throws {
+        // Given the add-partner form for Dad (who has child Me), answer = yes
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try TreeMutationService().addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+        let vm = AddPersonViewModel(context: .partner(of: dad), mutationService: TreeMutationService())
+        vm.firstName = "Mom"
+        vm.coParentWithExistingChildren = true
+
+        // When saved
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
+
+        // Then Mom becomes Me's second parent
+        let parents = GraphService().parents(of: me)
+        #expect(parents.count == 2)
+        #expect(parents.contains { $0.firstName == "Mom" })
+    }
+
+    @Test func savePartnerStaysSeparateWhenDeclined() async throws {
+        // Given the add-partner form for Dad (who has child Me), answer = no
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try TreeMutationService().addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+        let vm = AddPersonViewModel(context: .partner(of: dad), mutationService: TreeMutationService())
+        vm.firstName = "Stepmom"
+        vm.coParentWithExistingChildren = false
+
+        // When saved
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
+
+        // Then Me still has only Dad as a parent
+        #expect(GraphService().parents(of: me).count == 1)
+        #expect(GraphService().parents(of: me).first?.firstName == "Dad")
+    }
+
     @Test func deathDateParsedWhenDeceased() throws {
         // Given a deceased person with a valid death year
         let builder = try TestTreeBuilder()

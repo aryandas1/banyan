@@ -40,6 +40,19 @@ final class GraphService: GraphServiceProtocol {
         return deduplicated(result)
     }
 
+    /// The single union a new partner of `person` could reasonably co-parent: one
+    /// where `person` is the lone partner and there is at least one child. Returns
+    /// nil when no such union exists, or when there is more than one (ambiguous —
+    /// never assume co-parenting in that case).
+    func coParentableUnion(for person: Person) -> Union? {
+        let candidates = unions(for: person, role: .partner).filter { union in
+            let partnerCount = union.links.filter { $0.role == .partner }.count
+            let hasChildren = union.links.contains { $0.role == .child }
+            return partnerCount <= 1 && hasChildren
+        }
+        return candidates.count == 1 ? candidates.first : nil
+    }
+
     /// People who share at least one parent union with this person.
     /// Half-siblings — who share a parent but not a parent *union* — are not included.
     func siblings(of person: Person) -> [Person] {

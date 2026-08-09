@@ -23,8 +23,11 @@ protocol TreeMutationServiceProtocol {
         in context: ModelContext
     ) throws -> Person
 
-    /// Creates a person and links them as a partner of `anchorPerson`
-    /// in a new union.
+    /// Creates a person and links them as a partner of `anchorPerson`.
+    /// By default this is a new union. When `coParentExistingChildren` is true and
+    /// `anchorPerson` has a single one-parent union with children (see
+    /// `GraphService.coParentableUnion`), the new partner joins THAT union instead,
+    /// becoming a co-parent of its children — the "add my second parent" case.
     @discardableResult
     func addPartner(
         to anchorPerson: Person,
@@ -33,6 +36,7 @@ protocol TreeMutationServiceProtocol {
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
+        coParentExistingChildren: Bool,
         in context: ModelContext
     ) throws -> Person
 

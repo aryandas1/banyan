@@ -93,6 +93,57 @@ struct TreeMutationServiceTests {
         #expect(partnerUnions.first?.treeId == treeId)
     }
 
+    @Test func addPartnerCoParentsExistingChildren() throws {
+        // Given "me" whose only parent so far is Dad (added via addParent, so Dad
+        // is the lone partner of the union where I am the child) — the user's exact flow
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try service.addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+
+        // When I add a partner to Dad and confirm they co-parent the existing children
+        let mom = try service.addPartner(
+            to: dad, firstName: "Mom", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            coParentExistingChildren: true, in: builder.context
+        )
+
+        // Then Mom is my second parent (she joined Dad's union — no new union)
+        let myParents = graphService.parents(of: me)
+        #expect(myParents.count == 2)
+        #expect(myParents.contains { $0.id == mom.id })
+        #expect(myParents.contains { $0.id == dad.id })
+        #expect(me.links.filter { $0.role == .child }.count == 1)      // still one parent union
+        #expect(graphService.children(of: mom).contains { $0.id == me.id })
+    }
+
+    @Test func addPartnerWithoutCoParentStaysSeparate() throws {
+        // Given "me" whose only parent is Dad
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try service.addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+
+        // When I add a partner to Dad but say they are NOT a parent of my kids
+        let stepmom = try service.addPartner(
+            to: dad, firstName: "Stepmom", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            coParentExistingChildren: false, in: builder.context
+        )
+
+        // Then I still have only Dad as a parent; Stepmom is a partner in a separate union
+        #expect(graphService.parents(of: me).count == 1)
+        #expect(graphService.parents(of: me).first?.id == dad.id)
+        #expect(!graphService.children(of: stepmom).contains { $0.id == me.id })
+        #expect(graphService.allPartners(of: dad).contains { $0.id == stepmom.id })
+    }
+
     @Test func addChildLinksToExistingPartnerUnion() throws {
         // Given a person with one partner in a union
         let builder = try TestTreeBuilder()
