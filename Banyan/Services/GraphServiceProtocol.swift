@@ -22,6 +22,12 @@ protocol GraphServiceProtocol {
     /// All children across all unions where this person is a partner.
     func children(of person: Person) -> [Person]
 
+    /// The single union a new partner of `person` could reasonably co-parent: one
+    /// where `person` is the lone partner and there is at least one child. Returns
+    /// nil when no such union exists, or when there is more than one (ambiguous —
+    /// never assume co-parenting in that case).
+    func coParentableUnion(for person: Person) -> Union?
+
     /// People who share at least one parent union with this person.
     func siblings(of person: Person) -> [Person]
 
