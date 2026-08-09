@@ -3,6 +3,7 @@
 // build small DTO graphs and assert the pick.
 
 import Foundation
+import SwiftData
 import Testing
 @testable import Banyan
 
@@ -22,7 +23,7 @@ struct ViewerRootPickerTests {
     // MARK: - Tests
 
     @Test func returnsNilForEmptyTree() {
-        #expect(ViewerRootPicker.pickRoot(persons: [], links: []) == nil)
+        #expect(ViewerRootPicker.pickRoot(persons: [PersonDTO](), links: [PersonUnionLinkDTO]()) == nil)
     }
 
     @Test func prefersTopAncestorWithDescendants() {
@@ -112,5 +113,43 @@ struct ViewerRootPickerTests {
         let second = ViewerRootPicker.pickRoot(persons: persons.reversed(), links: links.reversed())
 
         #expect(first == second)
+    }
+
+    // MARK: - Local-model overload (fallback over the tree already in SwiftData)
+
+    @MainActor
+    @Test func localModelOverloadPicksTopAncestorWithDescendants() throws {
+        // Given a grandparent + child wired in an in-memory container (local models)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config)
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        let treeId = UUID()
+
+        let grandparent = Person(treeId: treeId, firstName: "GP")
+        let child = Person(treeId: treeId, firstName: "Kid")
+        let union = Union(treeId: treeId, type: .married)
+        context.insert(grandparent); context.insert(child); context.insert(union)
+        let partnerLink = PersonUnionLink(role: .partner)
+        let childLink = PersonUnionLink(role: .child)
+        context.insert(partnerLink); context.insert(childLink)
+        grandparent.links.append(partnerLink); union.links.append(partnerLink)
+        child.links.append(childLink); union.links.append(childLink)
+        try context.save()
+
+        let persons = try context.fetch(FetchDescriptor<Person>())
+        let links = try context.fetch(FetchDescriptor<PersonUnionLink>())
+
+        // When picking a root over the local models
+        let root = ViewerRootPicker.pickRoot(persons: persons, links: links)
+
+        // Then it matches the DTO heuristic: the ancestor with descendants, not the child
+        #expect(root == grandparent.id)
+        #expect(root != child.id)
+    }
+
+    @MainActor
+    @Test func localModelOverloadReturnsNilForEmptyTree() {
+        #expect(ViewerRootPicker.pickRoot(persons: [Person](), links: [PersonUnionLink]()) == nil)
     }
 }

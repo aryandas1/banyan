@@ -64,4 +64,22 @@ struct ViewerStoreTests {
         #expect(store.isViewer(treeId: treeId))
         #expect(store.rootPersonId(forTree: treeId) == nil)
     }
+
+    @Test func persistingRecomputedRootHealsAnEmptyAccept() {
+        // Given a tree accepted before the owner synced: viewer with a nil root
+        let (store, defaults) = makeStore()
+        let treeId = UUID()
+        store.addViewerTree(treeId, rootPersonId: nil)
+        #expect(store.rootPersonId(forTree: treeId) == nil)
+
+        // When a later refresh persists the recomputed root (the fix's write path)
+        let recomputed = UUID()
+        store.addViewerTree(treeId, rootPersonId: recomputed)
+
+        // Then the root heals, membership is unchanged, and no duplicate tree entry
+        #expect(store.rootPersonId(forTree: treeId) == recomputed)
+        #expect(store.isViewer(treeId: treeId))
+        #expect(store.viewerTreeIds.count == 1)
+        #expect(defaults.string(forKey: "treeId") == treeId.uuidString)
+    }
 }

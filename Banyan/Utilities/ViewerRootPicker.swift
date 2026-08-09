@@ -42,6 +42,17 @@ enum ViewerRootPicker {
             ?? best(from: persons)
     }
 
+    /// Local-model overload for the fallback over the tree already in SwiftData —
+    /// used when no root was persisted at accept time (an empty-then-populated
+    /// pull). Maps the models to DTOs and delegates to the DTO heuristic above so
+    /// the ranking has a single source of truth. Returns nil for an empty tree.
+    static func pickRoot(persons: [Person], links: [PersonUnionLink]) -> UUID? {
+        pickRoot(
+            persons: persons.map(PersonDTO.init(from:)),
+            links: links.compactMap(PersonUnionLinkDTO.init(from:))
+        )
+    }
+
     /// Prefers a non-placeholder person, then breaks ties deterministically on the
     /// id's string form.
     private static func best(from candidates: [PersonDTO]) -> UUID? {

@@ -157,6 +157,50 @@ struct SharedTreeImporterTests {
         #expect(root == parent || root == snapshot.persons[1].id) // parent or partner
     }
 
+    @Test func returnsNilRootForEmptySnapshot() throws {
+        // Given an empty pull (owner hadn't synced yet when the viewer accepted)
+        let context = try makeContext()
+        let treeId = UUID()
+
+        // When importing nothing
+        let root = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: [], unions: [], links: []),
+            treeId: treeId, into: context)
+
+        // Then there's no focal to store — the viewer sees "No tree yet"
+        #expect(root == nil)
+    }
+
+    /// The accept-before-sync self-heal: a viewer accepts before the owner has
+    /// synced (empty pull ⇒ nil root stored), then the owner syncs and the viewer
+    /// re-pulls. Mirrors the calls MainTabView.refreshSharedTree makes — importer
+    /// returns the recomputed root, which is persisted because none was stored.
+    @Test func refreshPersistsRootWhenAcceptStoredNone() throws {
+        // Given a viewer that accepted an empty tree (nil root persisted)
+        let context = try makeContext()
+        let defaults = UserDefaults(suiteName: "ImporterRefreshTests-\(UUID().uuidString)")!
+        let store = ViewerStore(defaults: defaults)
+        let treeId = UUID()
+
+        let emptyRoot = try SharedTreeImporter().importTree(
+            SharedTreeSnapshot(persons: [], unions: [], links: []),
+            treeId: treeId, into: context)
+        store.addViewerTree(treeId, rootPersonId: emptyRoot)   // nil ⇒ no root stored
+        #expect(store.rootPersonId(forTree: treeId) == nil)
+
+        // When the owner later syncs and the viewer re-pulls a populated tree
+        let (snapshot, _, child) = familySnapshot(treeId: treeId)
+        let importedRoot = try SharedTreeImporter().importTree(snapshot, treeId: treeId, into: context)
+        if let importedRoot, store.rootPersonId(forTree: treeId) == nil {
+            store.addViewerTree(treeId, rootPersonId: importedRoot)
+        }
+
+        // Then the recomputed root is persisted (state self-heals across relaunch)
+        let healed = try #require(store.rootPersonId(forTree: treeId))
+        #expect(healed == importedRoot)
+        #expect(healed != child)   // never the child
+    }
+
     // MARK: - Orphan pruning (re-pull reflects the owner's deletions)
 
     @Test func removesPersonDeletedFromSnapshot() throws {
