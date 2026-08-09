@@ -42,14 +42,10 @@ enum UITestSupport {
     /// An empty in-memory container with owner/viewer state cleared, so the
     /// acceptance flow starts from a clean signed-in state and imports into it.
     static func makeEmptyContainer() -> ModelContainer {
-        for key in ["ownerPersonId", "treeId", "viewerTreeIds"] {
+        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
-            fatalError("UITestSupport: failed to build the empty in-memory container.")
-        }
-        return container
+        return makeInMemoryContainer(label: "empty")
     }
 
     /// Builds an in-memory container seeded with a tiny tree (root + partner + one
@@ -58,27 +54,11 @@ enum UITestSupport {
     static func makeSeededViewerContainer() -> ModelContainer {
         // Become a pure viewer: drop any owner identity, mark this tree as viewed.
         UserDefaults.standard.removeObject(forKey: "ownerPersonId")
+        UserDefaults.standard.removeObject(forKey: "ownerTreeId")
         ViewerStore().addViewerTree(treeId, rootPersonId: rootId)
 
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
-            fatalError("UITestSupport: failed to build the seeded in-memory container.")
-        }
-        let context = ModelContext(container)
-
-        let root = Person(id: rootId, treeId: treeId, firstName: "Ravi", lastName: "Sharma")
-        let partner = Person(treeId: treeId, firstName: "Meera", lastName: "Sharma")
-        let child = Person(treeId: treeId, firstName: "Anaya", lastName: "Sharma")
-        let union = Union(treeId: treeId, type: .married)
-        for person in [root, partner, child] { context.insert(person) }
-        context.insert(union)
-        for (person, role) in [(root, LinkRole.partner), (partner, .partner), (child, .child)] {
-            let link = PersonUnionLink(role: role)
-            context.insert(link)
-            link.person = person
-            link.union = union
-        }
-        try? context.save()
+        let container = makeInMemoryContainer(label: "seeded viewer")
+        seedTinyTree(into: ModelContext(container))
         return container
     }
 
@@ -92,12 +72,24 @@ enum UITestSupport {
         UserDefaults.standard.set(treeId.uuidString, forKey: "treeId")
         ViewerStore().setOwnerTree(treeId)
 
+        let container = makeInMemoryContainer(label: "seeded owner")
+        seedTinyTree(into: ModelContext(container))
+        return container
+    }
+
+    /// An empty in-memory container for the current schema; traps with `label` if
+    /// SwiftData can't build it (a programmer error in a DEBUG-only test harness).
+    private static func makeInMemoryContainer(label: String) -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
-            fatalError("UITestSupport: failed to build the seeded owner container.")
+            fatalError("UITestSupport: failed to build the \(label) in-memory container.")
         }
-        let context = ModelContext(container)
+        return container
+    }
 
+    /// Inserts the shared 3-person fixture (root + partner + child in one married
+    /// union) used by both the viewer and owner seed containers.
+    private static func seedTinyTree(into context: ModelContext) {
         let root = Person(id: rootId, treeId: treeId, firstName: "Ravi", lastName: "Sharma")
         let partner = Person(treeId: treeId, firstName: "Meera", lastName: "Sharma")
         let child = Person(treeId: treeId, firstName: "Anaya", lastName: "Sharma")
@@ -111,7 +103,6 @@ enum UITestSupport {
             link.union = union
         }
         try? context.save()
-        return container
     }
 }
 

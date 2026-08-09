@@ -28,52 +28,41 @@ struct BanyanApp: App {
         BanyanApp.configureAppearance()
 
         #if DEBUG
-        // Hermetic UI-test path: stubbed auth/invite + a seeded in-memory store,
-        // so a viewer's read-only UI can be exercised with no network. Compiled
-        // out of release builds (see UITestSupport).
+        // Hermetic UI-test paths: stubbed auth + a seeded in-memory store, so the
+        // UI can be exercised with no network. Each shares the same composition
+        // (see makeUITestServices) and differs only in the invite service + store.
+        // Compiled out of release builds (see UITestSupport).
         if UITestSupport.isViewerLaunch {
-            let auth = AuthStateManager(authService: UITestAuthService())
-            _authState = State(initialValue: auth)
-            let client = SupabaseClientProvider.makeClient()
-            _syncService = State(initialValue: SyncService(
-                remote: SupabaseRemoteStore(client: client),
-                currentUserId: { auth.userId ?? UUID() }
-            ))
-            shareService = SupabaseShareService(client: client)
+            let s = BanyanApp.makeUITestServices()
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
             inviteAcceptanceService = UITestInviteService()
-            photoSyncService = PhotoSyncService(client: client)
             modelContainer = UITestSupport.makeSeededViewerContainer()
             return
         }
         if UITestSupport.isAcceptFlowLaunch {
             // Clean signed-in state + a stub service that accepts successfully, so
             // the deep-link acceptance sheet runs end to end with no network.
-            let auth = AuthStateManager(authService: UITestAuthService())
-            _authState = State(initialValue: auth)
-            let client = SupabaseClientProvider.makeClient()
-            _syncService = State(initialValue: SyncService(
-                remote: SupabaseRemoteStore(client: client),
-                currentUserId: { auth.userId ?? UUID() }
-            ))
-            shareService = SupabaseShareService(client: client)
+            let s = BanyanApp.makeUITestServices()
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
             inviteAcceptanceService = UITestAcceptInviteService()
-            photoSyncService = PhotoSyncService(client: client)
             modelContainer = UITestSupport.makeEmptyContainer()
             return
         }
         if UITestSupport.isOwnerOwnInviteLaunch {
             // Signed-in owner of the invited tree + a stub accept service that
             // returns that same tree id, so the owner-opens-own-invite guard runs.
-            let auth = AuthStateManager(authService: UITestAuthService())
-            _authState = State(initialValue: auth)
-            let client = SupabaseClientProvider.makeClient()
-            _syncService = State(initialValue: SyncService(
-                remote: SupabaseRemoteStore(client: client),
-                currentUserId: { auth.userId ?? UUID() }
-            ))
-            shareService = SupabaseShareService(client: client)
+            let s = BanyanApp.makeUITestServices()
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
             inviteAcceptanceService = UITestAcceptInviteService()
-            photoSyncService = PhotoSyncService(client: client)
             modelContainer = UITestSupport.makeSeededOwnerContainer()
             return
         }
@@ -152,4 +141,24 @@ struct BanyanApp: App {
         }
         return container
     }
+
+    #if DEBUG
+    /// The composition shared by every hermetic UI-test launch branch: a stub auth
+    /// (instant sign-in) and the real sync/share/photo services over one client.
+    /// Branches differ only in the invite service and seeded store.
+    private static func makeUITestServices() -> (
+        auth: AuthStateManager,
+        sync: SyncService,
+        share: any ShareServiceProtocol,
+        photo: any PhotoSyncServiceProtocol
+    ) {
+        let auth = AuthStateManager(authService: UITestAuthService())
+        let client = SupabaseClientProvider.makeClient()
+        let sync = SyncService(
+            remote: SupabaseRemoteStore(client: client),
+            currentUserId: { auth.userId ?? UUID() }
+        )
+        return (auth, sync, SupabaseShareService(client: client), PhotoSyncService(client: client))
+    }
+    #endif
 }
