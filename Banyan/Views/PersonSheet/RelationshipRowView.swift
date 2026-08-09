@@ -17,25 +17,27 @@ struct RelationshipRowView: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color(.systemGray5))
+                    .fill(BanyanTheme.avatarColor(for: person.id))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(person.initials)
                             .font(.callout)
                             .fontWeight(.semibold)
+                            .foregroundStyle(.white)
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(person.fullName)
                         .font(.body)
                         .fontWeight(.medium)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
                     Text(relationshipLabel)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(BanyanTheme.Color.textTertiary)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())

@@ -23,6 +23,10 @@ struct BanyanApp: App {
     private let modelContainer: ModelContainer
 
     init() {
+        // Appearance first — every path below (UITest branches included) returns
+        // early, so the global chrome styling has to run before any of them.
+        BanyanApp.configureAppearance()
+
         #if DEBUG
         // Hermetic UI-test path: stubbed auth/invite + a seeded in-memory store,
         // so a viewer's read-only UI can be exercised with no network. Compiled
@@ -93,8 +97,27 @@ struct BanyanApp: App {
                 .environment(\.shareService, shareService)
                 .environment(\.inviteAcceptanceService, inviteAcceptanceService)
                 .environment(\.photoSyncService, photoSyncService)
+                // BanyanTheme's palette is light-only (fixed warm off-white +
+                // near-black text); rendering it over dark system surfaces would
+                // break contrast, so the app locks to light appearance.
+                .preferredColorScheme(.light)
+                .tint(BanyanTheme.Color.primary)
         }
         .modelContainer(modelContainer)
+    }
+
+    /// Global UIKit chrome that SwiftUI can't reach per-view: the tab bar.
+    /// Screen backgrounds are set per-view with BanyanTheme tokens instead of a
+    /// blanket `UIView.appearance` hack, which bleeds into alerts and sheets.
+    private static func configureAppearance() {
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithOpaqueBackground()
+        tabAppearance.backgroundColor = UIColor(BanyanTheme.Color.surface)
+        tabAppearance.shadowColor = UIColor(BanyanTheme.Color.chrome)
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+        UITabBar.appearance().tintColor = UIColor(BanyanTheme.Color.primary)
+        UITabBar.appearance().unselectedItemTintColor = UIColor(BanyanTheme.Color.textTertiary)
     }
 
     /// The default persistent container from the current (V2) schema — the

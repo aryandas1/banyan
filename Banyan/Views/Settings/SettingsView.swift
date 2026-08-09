@@ -5,9 +5,12 @@ import SwiftUI
 
 struct SettingsView: View {
     var body: some View {
-        Text("Settings — coming later")
-            .font(.title3)
-            .foregroundStyle(.secondary)
+        ZStack {
+            BanyanTheme.Color.background.ignoresSafeArea()
+            Text("Settings — coming later")
+                .font(.title3)
+                .foregroundStyle(BanyanTheme.Color.textSecondary)
+        }
     }
 }
 

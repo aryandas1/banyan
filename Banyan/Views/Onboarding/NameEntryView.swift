@@ -13,6 +13,7 @@ struct NameEntryView: View {
 
     @State private var vm = OnboardingViewModel()
     @FocusState private var firstNameFocused: Bool
+    @FocusState private var lastNameFocused: Bool
 
     var body: some View {
         @Bindable var vm = vm
@@ -20,31 +21,49 @@ struct NameEntryView: View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Let's start with you")
-                    .font(.largeTitle)
+                    .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
 
                 Text("You'll be the centre of your tree.")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(BanyanTheme.Color.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("First name")
                     .font(.headline)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
                 TextField("First name", text: $vm.firstName)
-                    .font(.title3)
+                    .font(.body)
                     .textContentType(.givenName)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: BanyanTheme.Radius.input)
+                            .stroke(
+                                firstNameFocused ? BanyanTheme.Color.primary : BanyanTheme.Color.border,
+                                lineWidth: 2
+                            )
+                    )
                     .focused($firstNameFocused)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Last name")
                     .font(.headline)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
                 TextField("Last name (optional)", text: $vm.lastName)
-                    .font(.title3)
+                    .font(.body)
                     .textContentType(.familyName)
-                    .textFieldStyle(.roundedBorder)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: BanyanTheme.Radius.input)
+                            .stroke(
+                                lastNameFocused ? BanyanTheme.Color.primary : BanyanTheme.Color.border,
+                                lineWidth: 2
+                            )
+                    )
+                    .focused($lastNameFocused)
             }
 
             Spacer()
@@ -53,15 +72,21 @@ struct NameEntryView: View {
                 continueTapped()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
+                    .background(
+                        vm.canContinue && !vm.isSaving
+                            ? BanyanTheme.Color.primary
+                            : BanyanTheme.Color.textTertiary
+                    )
+                    .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
             .disabled(!vm.canContinue || vm.isSaving)
         }
         .padding()
+        .background(BanyanTheme.Color.surface.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { firstNameFocused = true }
         .alert(

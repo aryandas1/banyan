@@ -35,7 +35,7 @@ struct TreeConnectorsView: View {
                 addChildConnectors(to: &path, proxy: proxy)
                 context.stroke(
                     path,
-                    with: .color(Color(.systemGray3)),
+                    with: .color(BanyanTheme.Color.connector),
                     style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
                 )
             }
