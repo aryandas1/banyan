@@ -20,7 +20,26 @@ struct ViewerStore {
     }
 
     private static let viewerTreeIdsKey = "viewerTreeIds"
+    private static let ownerTreeIdKey = "ownerTreeId"
     private func rootKey(_ treeId: UUID) -> String { "viewerRoot:\(treeId.uuidString)" }
+
+    /// The tree this device owns (created at onboarding), or nil if none recorded.
+    /// Kept in a dedicated key that `addViewerTree` never touches, so accepting an
+    /// invite can tell "my own tree" apart from a genuinely shared one.
+    var ownerTreeId: UUID? {
+        defaults.string(forKey: Self.ownerTreeIdKey).flatMap(UUID.init(uuidString:))
+    }
+
+    /// Records `treeId` as the tree this device owns. Set once — never overwrites,
+    /// so a later reinstall or an existing install can't clobber the marker.
+    func setOwnerTree(_ treeId: UUID) {
+        guard ownerTreeId == nil else { return }
+        defaults.set(treeId.uuidString, forKey: Self.ownerTreeIdKey)
+    }
+
+    /// Whether `treeId` is this device's own tree (created here, not one it joined
+    /// as a viewer).
+    func isOwnedTree(_ treeId: UUID) -> Bool { ownerTreeId == treeId }
 
     /// The set of tree ids this device joined as a viewer.
     var viewerTreeIds: Set<UUID> {

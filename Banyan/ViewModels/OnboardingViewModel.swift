@@ -19,15 +19,16 @@ final class OnboardingViewModel {
     }
 
     /// Creates the owner Person, persists it, records its id and treeId in app
-    /// storage, and schedules a cloud sync so the new tree/owner rows reach the
-    /// backend before any relative is added.
+    /// storage, marks this tree as owned, and schedules a cloud sync so the new
+    /// tree/owner rows reach the backend before any relative is added.
     /// The two bindings are `@AppStorage`-backed strings owned by the view.
     /// Re-entrant calls are ignored so a double-tap cannot create two owners.
     func save(
         in context: ModelContext,
         ownerIdStorage: Binding<String>,
         treeIdStorage: Binding<String>,
-        sync: SyncScheduling
+        sync: SyncScheduling,
+        viewerStore: ViewerStore = ViewerStore()
     ) async throws {
         guard !isSaving else { return }
         isSaving = true
@@ -45,6 +46,10 @@ final class OnboardingViewModel {
 
         ownerIdStorage.wrappedValue = owner.id.uuidString
         treeIdStorage.wrappedValue = treeId.uuidString
+
+        // Mark this as the owned tree so opening one's own invite later can be told
+        // apart from joining a genuinely shared tree (set-once; never overwrites).
+        viewerStore.setOwnerTree(treeId)
 
         // Schedule after save so the trees/persons rows exist before the push runs.
         sync.scheduleSync(treeId: treeId, context: context)

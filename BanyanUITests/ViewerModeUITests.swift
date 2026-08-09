@@ -47,6 +47,30 @@ final class ViewerModeUITests: XCTestCase {
         XCTAssertTrue(app.buttons["View tree"].exists, "success screen should offer 'View tree'")
     }
 
+    // Regression guard for the owner-opens-own-invite lock: an owner who taps their
+    // OWN invite link must land back on their editable tree, not the read-only
+    // viewer shell. -uiTestOwnerOwnInvite stands the app up as the owner of the
+    // invited tree and presents the acceptance sheet against a stub that returns
+    // that same tree id — so the guard should short-circuit to success.
+    func testOwnerOpeningOwnInviteStaysEditable() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestOwnerOwnInvite"]
+        app.launch()
+
+        // The guard reaches success without importing/registering as a viewer.
+        XCTAssertTrue(app.staticTexts["You're in!"].waitForExistence(timeout: 15),
+                      "the acceptance sheet should complete for the owner's own invite")
+        app.buttons["View tree"].tap()
+
+        // Back on the owner's own tree: it renders, editable (Share present), with
+        // no view-only banner — i.e. the owner was NOT locked into read-only mode.
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "the owner's tree should render after dismissing the sheet")
+        XCTAssertTrue(app.buttons["Share"].exists, "the owner must still see Share (not read-only)")
+        XCTAssertFalse(app.staticTexts["View only"].exists,
+                       "opening your own invite must not show the view-only banner")
+    }
+
     func testViewerPersonSheetHasNoEditControls() {
         let app = launchViewerApp()
 

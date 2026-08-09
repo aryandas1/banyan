@@ -49,6 +49,11 @@ struct MainTabView: View {
             // immediately from local state, then let the refresh update it.
             if isReadOnly, let treeId = UUID(uuidString: treeIdString) {
                 viewerRoot = resolveViewerRoot(treeId: treeId)
+            } else if let treeId = UUID(uuidString: treeIdString) {
+                // Backfill the owned-tree marker for owners who onboarded before it
+                // existed (set-once, so a no-op once recorded). Guarded on !isReadOnly
+                // so a currently-viewed tree is never mis-recorded as owned.
+                ViewerStore().setOwnerTree(treeId)
             }
             await syncPhotosOnLaunch()
         }

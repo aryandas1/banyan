@@ -22,6 +22,19 @@ enum UITestSupport {
         ProcessInfo.processInfo.arguments.contains("-uiTestAcceptFlow")
     }
 
+    /// True when the app should stand up as the OWNER of the invited tree and then
+    /// present the acceptance sheet — exercises the owner-opens-own-invite guard,
+    /// which must land on success WITHOUT locking the owner into read-only mode.
+    static var isOwnerOwnInviteLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestOwnerOwnInvite")
+    }
+
+    /// Whether a launch flag asks ContentView to present the acceptance sheet on
+    /// launch (the accept-flow and owner-own-invite harnesses both do).
+    static var presentsAcceptSheetOnLaunch: Bool {
+        isAcceptFlowLaunch || isOwnerOwnInviteLaunch
+    }
+
     // Fixed ids so the test and the seed agree on the tree/root.
     static let treeId = UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID()
     static let rootId = UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID()
@@ -29,14 +42,10 @@ enum UITestSupport {
     /// An empty in-memory container with owner/viewer state cleared, so the
     /// acceptance flow starts from a clean signed-in state and imports into it.
     static func makeEmptyContainer() -> ModelContainer {
-        for key in ["ownerPersonId", "treeId", "viewerTreeIds"] {
+        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
-            fatalError("UITestSupport: failed to build the empty in-memory container.")
-        }
-        return container
+        return makeInMemoryContainer(label: "empty")
     }
 
     /// Builds an in-memory container seeded with a tiny tree (root + partner + one
@@ -45,14 +54,42 @@ enum UITestSupport {
     static func makeSeededViewerContainer() -> ModelContainer {
         // Become a pure viewer: drop any owner identity, mark this tree as viewed.
         UserDefaults.standard.removeObject(forKey: "ownerPersonId")
+        UserDefaults.standard.removeObject(forKey: "ownerTreeId")
         ViewerStore().addViewerTree(treeId, rootPersonId: rootId)
 
+        let container = makeInMemoryContainer(label: "seeded viewer")
+        seedTinyTree(into: ModelContext(container))
+        return container
+    }
+
+    /// Builds an in-memory container seeded with a tiny tree the device OWNS: sets
+    /// `ownerPersonId`/`treeId` app storage + the `ownerTreeId` marker (via
+    /// `ViewerStore.setOwnerTree`), and clears any viewer state. Used to prove that
+    /// opening one's own invite doesn't flip the app into read-only viewer mode.
+    static func makeSeededOwnerContainer() -> ModelContainer {
+        UserDefaults.standard.removeObject(forKey: "viewerTreeIds")
+        UserDefaults.standard.set(rootId.uuidString, forKey: "ownerPersonId")
+        UserDefaults.standard.set(treeId.uuidString, forKey: "treeId")
+        ViewerStore().setOwnerTree(treeId)
+
+        let container = makeInMemoryContainer(label: "seeded owner")
+        seedTinyTree(into: ModelContext(container))
+        return container
+    }
+
+    /// An empty in-memory container for the current schema; traps with `label` if
+    /// SwiftData can't build it (a programmer error in a DEBUG-only test harness).
+    private static func makeInMemoryContainer(label: String) -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         guard let container = try? ModelContainer(for: Schema(BanyanSchemaV2.models), configurations: config) else {
-            fatalError("UITestSupport: failed to build the seeded in-memory container.")
+            fatalError("UITestSupport: failed to build the \(label) in-memory container.")
         }
-        let context = ModelContext(container)
+        return container
+    }
 
+    /// Inserts the shared 3-person fixture (root + partner + child in one married
+    /// union) used by both the viewer and owner seed containers.
+    private static func seedTinyTree(into context: ModelContext) {
         let root = Person(id: rootId, treeId: treeId, firstName: "Ravi", lastName: "Sharma")
         let partner = Person(treeId: treeId, firstName: "Meera", lastName: "Sharma")
         let child = Person(treeId: treeId, firstName: "Anaya", lastName: "Sharma")
@@ -66,7 +103,6 @@ enum UITestSupport {
             link.union = union
         }
         try? context.save()
-        return container
     }
 }
 
