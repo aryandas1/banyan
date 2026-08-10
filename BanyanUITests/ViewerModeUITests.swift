@@ -97,6 +97,41 @@ final class ViewerModeUITests: XCTestCase {
                       "the re-accepting viewer stays a read-only viewer")
     }
 
+    // The tree switcher: an owner who also views a second tree can switch between
+    // them from the Tree tab's menu, and read-only-ness follows the active tree —
+    // their own tree stays editable (Share present), the viewed one is read-only
+    // (View only banner, no Share). -uiTestTreeSwitcher seeds exactly that state.
+    func testTreeSwitcherTogglesBetweenOwnedAndViewedTrees() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestTreeSwitcher"]
+        app.launch()
+
+        // Starts on the owned, editable tree.
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "should open on the owned tree's focal person")
+        XCTAssertTrue(app.buttons["Share"].exists, "the owned tree is editable (Share present)")
+        XCTAssertFalse(app.staticTexts["View only"].exists, "no view-only banner on the owned tree")
+
+        // Switch to the viewed tree.
+        app.buttons["treeSwitcher"].tap()
+        app.buttons["Priya's family"].tap()
+
+        // Now read-only: the viewed tree's focal renders, banner shown, Share gone.
+        XCTAssertTrue(app.staticTexts["Priya"].waitForExistence(timeout: 15),
+                      "switching should centre the viewed tree's focal person")
+        XCTAssertTrue(app.staticTexts["View only"].waitForExistence(timeout: 5),
+                      "the viewed tree must be read-only")
+        XCTAssertFalse(app.buttons["Share"].exists, "a viewer must not see Share")
+
+        // Switch back to the owned tree → editable again.
+        app.buttons["treeSwitcher"].tap()
+        app.buttons["Ravi's family"].tap()
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "switching back should restore the owned tree")
+        XCTAssertTrue(app.buttons["Share"].exists, "the owned tree is editable again")
+        XCTAssertFalse(app.staticTexts["View only"].exists, "no banner back on the owned tree")
+    }
+
     func testViewerPersonSheetHasNoEditControls() {
         let app = launchViewerApp()
 

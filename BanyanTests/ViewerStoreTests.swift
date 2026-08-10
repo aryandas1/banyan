@@ -124,6 +124,25 @@ struct ViewerStoreTests {
         #expect(store.treeId(forAcceptedToken: "link-abc") == nil)
     }
 
+    @Test func setActiveTreeWritesTheSharedTreeIdWithoutChangingMembership() {
+        // Given a viewer of one tree, with a different owned tree recorded
+        let (store, defaults) = makeStore()
+        let owned = UUID()
+        let viewed = UUID()
+        store.setOwnerTree(owned)
+        store.addViewerTree(viewed, rootPersonId: UUID())   // makes viewed the active tree
+
+        // When switching the active tree to the owned one
+        store.setActiveTree(owned)
+
+        // Then only the shared "treeId" key moved — membership is untouched, so
+        // read-only-ness (owned vs viewed) flips purely from the active tree.
+        #expect(defaults.string(forKey: "treeId") == owned.uuidString)
+        #expect(store.ownerTreeId == owned)
+        #expect(store.viewerTreeIds == [viewed])
+        #expect(store.isViewer(treeId: owned) == false)
+    }
+
     @Test func persistingRecomputedRootHealsAnEmptyAccept() {
         // Given a tree accepted before the owner synced: viewer with a nil root
         let (store, defaults) = makeStore()

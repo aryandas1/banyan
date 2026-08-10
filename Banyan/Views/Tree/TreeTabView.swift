@@ -9,6 +9,7 @@ struct TreeTabView: View {
     let ownerPersonId: UUID
 
     @AppStorage("treeId") private var treeIdString: String = ""
+    @AppStorage("ownerPersonId") private var ownerPersonIdString: String = ""
     @Query private var allPeople: [Person]
 
     /// Injected at the composition root; used to build a ShareViewModel for the
@@ -53,6 +54,34 @@ struct TreeTabView: View {
     private var canShare: Bool {
         !isReadOnly && UUID(uuidString: treeIdString) != nil
             && authState.userId != nil && shareService != nil
+    }
+
+    private var activeTreeId: UUID? { UUID(uuidString: treeIdString) }
+
+    /// The trees this device can switch between: its own editable tree plus any it
+    /// joined as a viewer, each labeled by its focal person's name. Read from the
+    /// ViewerStore + the local people (which hold every accepted tree's persons).
+    private var switcherOptions: [TreeSwitcherOption] {
+        let store = ViewerStore()
+        let ownerTreeId = store.ownerTreeId
+        let ownerPersonId = UUID(uuidString: ownerPersonIdString)
+        return TreeSwitcher.options(
+            ownerTreeId: ownerTreeId,
+            viewerTreeIds: store.viewerTreeIds,
+            focalName: { treeId in
+                let focalId = (treeId == ownerTreeId) ? ownerPersonId : store.rootPersonId(forTree: treeId)
+                guard let focalId else { return nil }
+                return allPeople.first { $0.id == focalId }?.firstName
+            }
+        )
+    }
+
+    /// Switches the active tree. Writing the shared "treeId" key updates every
+    /// @AppStorage("treeId") reader (this view + ContentView, which re-derives
+    /// read-only-ness), so no other state has to be touched here.
+    private func switchTree(to treeId: UUID) {
+        guard treeId != activeTreeId else { return }
+        ViewerStore().setActiveTree(treeId)
     }
 
     var body: some View {
@@ -117,6 +146,18 @@ struct TreeTabView: View {
                 setUpIfPossible()
             }
             .toolbar {
+                // The tree switcher — shown (for owner and viewer alike) only when
+                // this device has more than one tree, so a single-tree user sees
+                // no extra chrome.
+                if switcherOptions.count > 1 {
+                    ToolbarItem(placement: .topBarLeading) {
+                        TreeSwitcherMenu(
+                            options: switcherOptions,
+                            activeTreeId: activeTreeId,
+                            onSelect: switchTree
+                        )
+                    }
+                }
                 // Hidden entirely for a viewer — a read-only tree can't be shared.
                 if !isReadOnly {
                     ToolbarItem(placement: .topBarTrailing) {

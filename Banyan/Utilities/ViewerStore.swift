@@ -82,6 +82,15 @@ struct ViewerStore {
         defaults.removeObject(forKey: acceptedTokenKey(token))
     }
 
+    /// Switches the app to `treeId` by writing the shared "treeId" key (the same
+    /// backing store as @AppStorage("treeId")), WITHOUT changing owner/viewer
+    /// membership — read-only-ness derives from whether the active tree is a viewed
+    /// one, so switching to the owned tree makes it editable and back to a viewed
+    /// tree read-only, with no membership rewrite. Used by the tree switcher.
+    func setActiveTree(_ treeId: UUID) {
+        defaults.set(treeId.uuidString, forKey: "treeId")
+    }
+
     /// Records that this device joined `treeId` as a viewer with `rootPersonId` as
     /// its focal, and switches the app to that tree by writing the shared "treeId"
     /// key (the same backing store as @AppStorage("treeId")).
