@@ -97,6 +97,22 @@ struct ViewerStoreTests {
         #expect(store.isViewer(treeId: owned) == false)
     }
 
+    @Test func unknownTokenHasNoRecordedTree() {
+        let (store, _) = makeStore()
+        #expect(store.treeId(forAcceptedToken: "never-seen") == nil)
+    }
+
+    @Test func recordedAcceptedTokenRoundTripsToItsTreeId() {
+        // Given a token recorded as accepted for a tree
+        let (store, _) = makeStore()
+        let treeId = UUID()
+        store.recordAcceptedToken("link-abc", treeId: treeId)
+
+        // Then it resolves back to that tree, and other tokens stay unknown
+        #expect(store.treeId(forAcceptedToken: "link-abc") == treeId)
+        #expect(store.treeId(forAcceptedToken: "link-xyz") == nil)
+    }
+
     @Test func persistingRecomputedRootHealsAnEmptyAccept() {
         // Given a tree accepted before the owner synced: viewer with a nil root
         let (store, defaults) = makeStore()

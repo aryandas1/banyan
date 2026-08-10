@@ -29,11 +29,23 @@ enum UITestSupport {
         ProcessInfo.processInfo.arguments.contains("-uiTestOwnerOwnInvite")
     }
 
-    /// Whether a launch flag asks ContentView to present the acceptance sheet on
-    /// launch (the accept-flow and owner-own-invite harnesses both do).
-    static var presentsAcceptSheetOnLaunch: Bool {
-        isAcceptFlowLaunch || isOwnerOwnInviteLaunch
+    /// True when the app should stand up as a viewer who has ALREADY accepted the
+    /// invite and then re-present the acceptance sheet — exercises the re-accept
+    /// memo, which must short-circuit to success WITHOUT calling the (failing,
+    /// non-idempotent) accept service again, so no failure screen flashes.
+    static var isReacceptFlowLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestReaccept")
     }
+
+    /// Whether a launch flag asks ContentView to present the acceptance sheet on
+    /// launch (the accept-flow, owner-own-invite, and re-accept harnesses all do).
+    static var presentsAcceptSheetOnLaunch: Bool {
+        isAcceptFlowLaunch || isOwnerOwnInviteLaunch || isReacceptFlowLaunch
+    }
+
+    /// The token ContentView presents on a hermetic accept-sheet launch (matches
+    /// the DEBUG launch hook), so the re-accept harness can pre-record it.
+    static let launchAcceptToken = "uitest"
 
     // Fixed ids so the test and the seed agree on the tree/root.
     static let treeId = UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID()
@@ -42,11 +54,15 @@ enum UITestSupport {
     /// An empty in-memory container with owner/viewer state cleared, so the
     /// acceptance flow starts from a clean signed-in state and imports into it.
     static func makeEmptyContainer() -> ModelContainer {
-        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId"] {
+        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId", acceptedTokenKey] {
             UserDefaults.standard.removeObject(forKey: key)
         }
         return makeInMemoryContainer(label: "empty")
     }
+
+    /// The defaults key the re-accept memo writes for the launch token — cleared by
+    /// the hermetic containers so a memo can't leak across UI-test launches.
+    private static let acceptedTokenKey = "acceptedToken:\(launchAcceptToken)"
 
     /// Builds an in-memory container seeded with a tiny tree (root + partner + one
     /// child) and writes the viewer UserDefaults so ContentView routes to a
@@ -55,6 +71,7 @@ enum UITestSupport {
         // Become a pure viewer: drop any owner identity, mark this tree as viewed.
         UserDefaults.standard.removeObject(forKey: "ownerPersonId")
         UserDefaults.standard.removeObject(forKey: "ownerTreeId")
+        UserDefaults.standard.removeObject(forKey: acceptedTokenKey)
         ViewerStore().addViewerTree(treeId, rootPersonId: rootId)
 
         let container = makeInMemoryContainer(label: "seeded viewer")
@@ -68,11 +85,28 @@ enum UITestSupport {
     /// opening one's own invite doesn't flip the app into read-only viewer mode.
     static func makeSeededOwnerContainer() -> ModelContainer {
         UserDefaults.standard.removeObject(forKey: "viewerTreeIds")
+        UserDefaults.standard.removeObject(forKey: acceptedTokenKey)
         UserDefaults.standard.set(rootId.uuidString, forKey: "ownerPersonId")
         UserDefaults.standard.set(treeId.uuidString, forKey: "treeId")
         ViewerStore().setOwnerTree(treeId)
 
         let container = makeInMemoryContainer(label: "seeded owner")
+        seedTinyTree(into: ModelContext(container))
+        return container
+    }
+
+    /// Builds a viewer container that has ALREADY accepted the invite token: it's a
+    /// viewer of the seeded tree AND the launch token is memoized. Re-presenting the
+    /// acceptance sheet must therefore short-circuit to success via the token memo,
+    /// not call the (failing) accept service — proving the re-accept-flash fix.
+    static func makeReacceptedViewerContainer() -> ModelContainer {
+        UserDefaults.standard.removeObject(forKey: "ownerPersonId")
+        UserDefaults.standard.removeObject(forKey: "ownerTreeId")
+        let store = ViewerStore()
+        store.addViewerTree(treeId, rootPersonId: rootId)
+        store.recordAcceptedToken(launchAcceptToken, treeId: treeId)
+
+        let container = makeInMemoryContainer(label: "reaccepted viewer")
         seedTinyTree(into: ModelContext(container))
         return container
     }
@@ -120,6 +154,16 @@ final class UITestInviteService: InviteAcceptanceServiceProtocol {
     private struct Unused: Error {}
     func acceptInvitation(token: String) async throws -> UUID { UITestSupport.treeId }
     func fetchSharedTree(treeId: UUID) async throws -> SharedTreeSnapshot { throw Unused() }
+}
+
+/// An invite service that FAILS on every call — simulates the real non-idempotent
+/// RPC rejecting a second accept. The re-accept token memo must short-circuit to
+/// success BEFORE this is ever reached; if it didn't, the sheet would flash the
+/// failure screen (the bug under test).
+final class UITestReacceptInviteService: InviteAcceptanceServiceProtocol {
+    private struct AlreadyUsed: Error {}
+    func acceptInvitation(token: String) async throws -> UUID { throw AlreadyUsed() }
+    func fetchSharedTree(treeId: UUID) async throws -> SharedTreeSnapshot { throw AlreadyUsed() }
 }
 
 /// A stub invite service that SUCCEEDS with a one-person canned tree, so the

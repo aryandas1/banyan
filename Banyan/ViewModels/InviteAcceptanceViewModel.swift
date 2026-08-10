@@ -40,12 +40,22 @@ final class InviteAcceptanceViewModel {
     /// Any failure lands on `.failure` with a user-facing message (the token is
     /// most often invalid or already used).
     func accept(token: String, context: ModelContext) async {
+        // Already accepted on this device (a re-tap, or iOS redelivering
+        // onOpenURL): resolve straight to success against the memoized tree id.
+        // The accept RPC is not idempotent — a second call errors — so calling it
+        // again would flash a failure screen over a tree the viewer can already
+        // see. This runs before `.accepting`, so there's no spinner flicker either.
+        if let treeId = store.treeId(forAcceptedToken: token) {
+            state = .success(treeId: treeId)
+            return
+        }
         state = .accepting
         do {
             let treeId = try await service.acceptInvitation(token: token)
             // Owner opened their own invite link: don't register as a viewer or
             // overwrite the active tree, which would lock them into read-only mode.
             if store.isOwnedTree(treeId) {
+                store.recordAcceptedToken(token, treeId: treeId)
                 state = .success(treeId: treeId)
                 return
             }
@@ -53,6 +63,7 @@ final class InviteAcceptanceViewModel {
             let snapshot = try await service.fetchSharedTree(treeId: treeId)
             let rootPersonId = try importer.importTree(snapshot, treeId: treeId, into: context)
             store.addViewerTree(treeId, rootPersonId: rootPersonId)
+            store.recordAcceptedToken(token, treeId: treeId)
             state = .success(treeId: treeId)
         } catch {
             state = .failure("This invite link is invalid or has already been used.")

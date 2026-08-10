@@ -54,6 +54,19 @@ struct BanyanApp: App {
             modelContainer = UITestSupport.makeEmptyContainer()
             return
         }
+        if UITestSupport.isReacceptFlowLaunch {
+            // Viewer who already accepted this invite + a FAILING accept service, so
+            // re-presenting the sheet must short-circuit via the token memo (success),
+            // never the failure screen the real non-idempotent RPC would produce.
+            let s = BanyanApp.makeUITestServices()
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
+            inviteAcceptanceService = UITestReacceptInviteService()
+            modelContainer = UITestSupport.makeReacceptedViewerContainer()
+            return
+        }
         if UITestSupport.isOwnerOwnInviteLaunch {
             // Signed-in owner of the invited tree + a stub accept service that
             // returns that same tree id, so the owner-opens-own-invite guard runs.
