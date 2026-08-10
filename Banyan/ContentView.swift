@@ -78,7 +78,7 @@ struct ContentView: View {
         // onOpenURL would take) so a test can assert it renders + completes.
         .task {
             if UITestSupport.presentsAcceptSheetOnLaunch, pendingInvite == nil {
-                pendingInvite = PendingInvite(token: "uitest")
+                pendingInvite = PendingInvite(token: UITestSupport.launchAcceptToken)
             }
         }
         #endif

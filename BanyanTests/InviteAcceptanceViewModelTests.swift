@@ -109,6 +109,90 @@ struct InviteAcceptanceViewModelTests {
         #expect(try context.fetch(FetchDescriptor<Person>()).isEmpty)
     }
 
+    @Test func reacceptingARecordedTokenSucceedsWithoutCallingTheService() async throws {
+        // Given a token already accepted once on this device (RPC + pull happened)
+        let treeId = UUID()
+        let personId = UUID()
+        let service = MockInviteAcceptanceService()
+        service.treeIdToReturn = treeId
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(personId, treeId: treeId)], unions: [], links: []
+        )
+        let store = makeStore()
+        let viewModel = makeViewModel(service: service, store: store)
+        let context = try makeContext()
+        await viewModel.accept(token: "link", context: context)
+        #expect(service.acceptedTokens == ["link"])
+        #expect(service.fetchedTreeIds == [treeId])
+
+        // When the same link is re-tapped (or iOS redelivers onOpenURL)
+        await viewModel.accept(token: "link", context: context)
+
+        // Then it lands on success against the memoized tree id WITHOUT calling the
+        // non-idempotent accept RPC (or the pull) a second time.
+        #expect(viewModel.state == .success(treeId: treeId))
+        #expect(service.acceptedTokens == ["link"])
+        #expect(service.fetchedTreeIds == [treeId])
+    }
+
+    @Test func ownerReopeningTheirOwnRecordedInviteShortCircuitsWithoutTheRPC() async throws {
+        // Given the owner already opened their own invite once (guard recorded the
+        // token so a re-tap needn't re-consume it via the RPC)
+        let treeId = UUID()
+        let service = MockInviteAcceptanceService()
+        service.treeIdToReturn = treeId
+        let store = makeStore()
+        store.setOwnerTree(treeId)
+        let viewModel = makeViewModel(service: service, store: store)
+        let context = try makeContext()
+        await viewModel.accept(token: "own-link", context: context)
+        #expect(service.acceptedTokens == ["own-link"])
+
+        // When the owner re-taps their own link
+        await viewModel.accept(token: "own-link", context: context)
+
+        // Then it resolves to success from the memo — no second RPC call — and the
+        // owner is still NOT registered as a viewer (the re-activation only applies
+        // to viewed trees; re-registering the owned tree would lock read-only).
+        #expect(viewModel.state == .success(treeId: treeId))
+        #expect(service.acceptedTokens == ["own-link"])
+        #expect(store.viewerTreeIds.isEmpty)
+    }
+
+    @Test func reacceptingAViewedTreeReactivatesItAsTheCurrentTree() async throws {
+        // Given a viewer who accepted tree A, then tree B — so B is the active tree
+        let treeA = UUID(); let rootA = UUID()
+        let treeB = UUID(); let rootB = UUID()
+        let defaults = UserDefaults(suiteName: "InviteVMReactivate-\(UUID().uuidString)")!
+        let store = ViewerStore(defaults: defaults)
+        let service = MockInviteAcceptanceService()
+        let viewModel = makeViewModel(service: service, store: store)
+        let context = try makeContext()
+
+        service.treeIdToReturn = treeA
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(rootA, treeId: treeA)], unions: [], links: []
+        )
+        await viewModel.accept(token: "link-A", context: context)
+
+        service.treeIdToReturn = treeB
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(rootB, treeId: treeB)], unions: [], links: []
+        )
+        await viewModel.accept(token: "link-B", context: context)
+        #expect(defaults.string(forKey: "treeId") == treeB.uuidString)
+
+        // When the viewer re-opens tree A's link
+        await viewModel.accept(token: "link-A", context: context)
+
+        // Then it succeeds from the memo (no third RPC call) AND switches the active
+        // tree back to A, restoring A's stored root — not leaving them stuck on B.
+        #expect(viewModel.state == .success(treeId: treeA))
+        #expect(service.acceptedTokens == ["link-A", "link-B"])
+        #expect(defaults.string(forKey: "treeId") == treeA.uuidString)
+        #expect(store.rootPersonId(forTree: treeA) == rootA)
+    }
+
     @Test func acceptFailureEndsInFailureAndRecordsNothing() async throws {
         // Given a service whose RPC rejects the token
         let service = MockInviteAcceptanceService()

@@ -40,12 +40,31 @@ final class InviteAcceptanceViewModel {
     /// Any failure lands on `.failure` with a user-facing message (the token is
     /// most often invalid or already used).
     func accept(token: String, context: ModelContext) async {
+        // Already accepted on this device (a re-tap, or iOS redelivering
+        // onOpenURL): resolve straight to success against the memoized tree id.
+        // The accept RPC is not idempotent — a second call errors — so calling it
+        // again would flash a failure screen over a tree the viewer can already
+        // see. This runs before `.accepting`, so there's no spinner flicker either.
+        if let treeId = store.treeId(forAcceptedToken: token) {
+            // Re-activate the tree so re-opening the link actually returns the
+            // viewer to it — the normal accept path switches the active tree via
+            // addViewerTree, and the short-circuit must too, or a viewer with more
+            // than one accepted tree would see "success" while staying on another.
+            // The owner's own tree is never re-registered as a viewed tree (that
+            // would lock them into read-only mode).
+            if !store.isOwnedTree(treeId) {
+                store.addViewerTree(treeId, rootPersonId: store.rootPersonId(forTree: treeId))
+            }
+            state = .success(treeId: treeId)
+            return
+        }
         state = .accepting
         do {
             let treeId = try await service.acceptInvitation(token: token)
             // Owner opened their own invite link: don't register as a viewer or
             // overwrite the active tree, which would lock them into read-only mode.
             if store.isOwnedTree(treeId) {
+                store.recordAcceptedToken(token, treeId: treeId)
                 state = .success(treeId: treeId)
                 return
             }
@@ -53,6 +72,7 @@ final class InviteAcceptanceViewModel {
             let snapshot = try await service.fetchSharedTree(treeId: treeId)
             let rootPersonId = try importer.importTree(snapshot, treeId: treeId, into: context)
             store.addViewerTree(treeId, rootPersonId: rootPersonId)
+            store.recordAcceptedToken(token, treeId: treeId)
             state = .success(treeId: treeId)
         } catch {
             state = .failure("This invite link is invalid or has already been used.")

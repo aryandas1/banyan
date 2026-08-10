@@ -71,6 +71,32 @@ final class ViewerModeUITests: XCTestCase {
                        "opening your own invite must not show the view-only banner")
     }
 
+    // Regression guard for the re-accept flash: a viewer who re-opens an invite
+    // they already accepted (a re-tap, or iOS redelivering onOpenURL) must land on
+    // success via the token memo, NOT flash the failure screen the non-idempotent
+    // accept RPC would produce. -uiTestReaccept stands the app up as a viewer who
+    // has already accepted the token, backed by an invite service that FAILS on
+    // every call — so any output other than success means the memo didn't fire.
+    func testReopeningAnAlreadyAcceptedInviteDoesNotFlashFailure() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestReaccept"]
+        app.launch()
+
+        // The memo short-circuits straight to success…
+        XCTAssertTrue(app.staticTexts["You're in!"].waitForExistence(timeout: 15),
+                      "re-opening an accepted invite should resolve to success")
+        // …and the failure screen the failing service would produce never appears.
+        XCTAssertFalse(app.staticTexts["Invite not valid"].exists,
+                       "re-accepting a memoized token must not flash the failure screen")
+
+        // Dismissing returns the viewer to the tree they could already see.
+        app.buttons["View tree"].tap()
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "the viewer's tree should render after dismissing the sheet")
+        XCTAssertTrue(app.staticTexts["View only"].exists,
+                      "the re-accepting viewer stays a read-only viewer")
+    }
+
     func testViewerPersonSheetHasNoEditControls() {
         let app = launchViewerApp()
 

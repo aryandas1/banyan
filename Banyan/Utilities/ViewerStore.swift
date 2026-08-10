@@ -22,6 +22,7 @@ struct ViewerStore {
     private static let viewerTreeIdsKey = "viewerTreeIds"
     private static let ownerTreeIdKey = "ownerTreeId"
     private func rootKey(_ treeId: UUID) -> String { "viewerRoot:\(treeId.uuidString)" }
+    private func acceptedTokenKey(_ token: String) -> String { "acceptedToken:\(token)" }
 
     /// The tree this device owns (created at onboarding), or nil if none recorded.
     /// Kept in a dedicated key that `addViewerTree` never touches, so accepting an
@@ -56,6 +57,29 @@ struct ViewerStore {
     func rootPersonId(forTree treeId: UUID) -> UUID? {
         guard let string = defaults.string(forKey: rootKey(treeId)) else { return nil }
         return UUID(uuidString: string)
+    }
+
+    /// The tree id a previously-accepted `token` resolved to on this device, or
+    /// nil if this token has not been accepted here. Lets the acceptance flow
+    /// short-circuit a re-tap / `onOpenURL` redelivery straight to success instead
+    /// of calling the accept RPC a second time — the RPC is NOT idempotent (it
+    /// only matches a `pending` invitation, so a second call errors) and that
+    /// error otherwise flashes a failure screen over a tree the viewer can already
+    /// see.
+    func treeId(forAcceptedToken token: String) -> UUID? {
+        defaults.string(forKey: acceptedTokenKey(token)).flatMap(UUID.init(uuidString:))
+    }
+
+    /// Memoizes that `token` was successfully accepted for `treeId` on this device,
+    /// so a later re-open of the same link can resolve without re-calling the RPC.
+    func recordAcceptedToken(_ token: String, treeId: UUID) {
+        defaults.set(treeId.uuidString, forKey: acceptedTokenKey(token))
+    }
+
+    /// Forgets any memoized acceptance for `token`. Used by the UI-test harnesses
+    /// to reset state between hermetic launches without reconstructing the key.
+    func clearAcceptedToken(_ token: String) {
+        defaults.removeObject(forKey: acceptedTokenKey(token))
     }
 
     /// Records that this device joined `treeId` as a viewer with `rootPersonId` as
