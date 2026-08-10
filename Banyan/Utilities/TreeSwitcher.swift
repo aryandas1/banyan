@@ -45,7 +45,14 @@ enum TreeSwitcher {
         let viewed = viewerTreeIds
             .subtracting(ownerTreeId.map { [$0] } ?? [])
             .map { TreeSwitcherOption(treeId: $0, label: label(for: $0), isOwned: false) }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+            .sorted {
+                // Sort by label, breaking ties on the id's string form so trees that
+                // share a label (same focal name, or both the fallback) keep a stable
+                // order across launches — Set iteration + sorted(by:) aren't stable.
+                let byLabel = $0.label.localizedCaseInsensitiveCompare($1.label)
+                if byLabel != .orderedSame { return byLabel == .orderedAscending }
+                return $0.treeId.uuidString < $1.treeId.uuidString
+            }
         options.append(contentsOf: viewed)
         return options
     }

@@ -39,7 +39,7 @@ struct TreeSwitcherMenu: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BanyanTheme.Color.textSecondary)
             }
-            .frame(minHeight: 44)
+            .frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityIdentifier("treeSwitcher")
         .accessibilityLabel("Switch family tree, showing \(activeLabel)")

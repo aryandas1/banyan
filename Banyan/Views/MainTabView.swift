@@ -28,10 +28,11 @@ struct MainTabView: View {
     /// UUID if neither resolves — the tab still renders rather than crashing.
     private var rootPersonId: UUID {
         if isReadOnly {
-            // Prefer the reactive focal (heals after a refresh); fall back to the
-            // root stored at accept so switching to a viewed tree centres it at once,
-            // before the async .task re-resolves.
-            if let root = viewerRoot ?? storedViewerRoot { return root }
+            // Prefer the root stored for THIS tree, so a switch (including viewed →
+            // viewed) centres on the right person immediately rather than the
+            // previous tree's stale focal. Fall back to the reactive viewerRoot,
+            // which the .task recomputes to self-heal an empty accept (no stored root).
+            if let root = storedViewerRoot ?? viewerRoot { return root }
             return .placeholder
         }
         return UUID(uuidString: ownerPersonIdString) ?? .placeholder

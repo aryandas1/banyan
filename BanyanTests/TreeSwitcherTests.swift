@@ -75,6 +75,20 @@ struct TreeSwitcherTests {
         #expect(options[0].isOwned)
     }
 
+    @Test func viewedTreesWithEqualLabelsAreOrderedDeterministicallyById() {
+        // Given two viewed trees that resolve to the SAME label
+        let a = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!
+        let b = UUID(uuidString: "00000000-0000-0000-0000-0000000000BB")!
+        func build() -> [UUID] {
+            TreeSwitcher.options(ownerTreeId: nil, viewerTreeIds: [a, b], focalName: { _ in "Sam" })
+                .map(\.treeId)
+        }
+
+        // Then ties break on the id's string form (…AA < …BB), stable across calls
+        #expect(build() == [a, b])
+        #expect(build() == build())
+    }
+
     @Test func viewerOnlyDeviceListsViewedTreesWithNoOwned() {
         // Given no owned tree, two viewed trees
         let a = UUID(); let b = UUID()

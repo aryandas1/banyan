@@ -64,10 +64,14 @@ struct TreeTabView: View {
     private var switcherOptions: [TreeSwitcherOption] {
         let store = ViewerStore()
         let ownerTreeId = store.ownerTreeId
+        let viewerTreeIds = store.viewerTreeIds
+        // Cheap early-out for the common single-tree user: skip building labels and
+        // scanning allPeople when there's nothing to switch between.
+        guard viewerTreeIds.union(ownerTreeId.map { [$0] } ?? []).count > 1 else { return [] }
         let ownerPersonId = UUID(uuidString: ownerPersonIdString)
         return TreeSwitcher.options(
             ownerTreeId: ownerTreeId,
-            viewerTreeIds: store.viewerTreeIds,
+            viewerTreeIds: viewerTreeIds,
             focalName: { treeId in
                 let focalId = (treeId == ownerTreeId) ? ownerPersonId : store.rootPersonId(forTree: treeId)
                 guard let focalId else { return nil }
