@@ -113,6 +113,17 @@ struct ViewerStoreTests {
         #expect(store.treeId(forAcceptedToken: "link-xyz") == nil)
     }
 
+    @Test func clearingAnAcceptedTokenForgetsIt() {
+        // Given a recorded token
+        let (store, _) = makeStore()
+        store.recordAcceptedToken("link-abc", treeId: UUID())
+        #expect(store.treeId(forAcceptedToken: "link-abc") != nil)
+
+        // When it's cleared, it's forgotten
+        store.clearAcceptedToken("link-abc")
+        #expect(store.treeId(forAcceptedToken: "link-abc") == nil)
+    }
+
     @Test func persistingRecomputedRootHealsAnEmptyAccept() {
         // Given a tree accepted before the owner synced: viewer with a nil root
         let (store, defaults) = makeStore()

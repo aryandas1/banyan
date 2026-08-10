@@ -76,6 +76,12 @@ struct ViewerStore {
         defaults.set(treeId.uuidString, forKey: acceptedTokenKey(token))
     }
 
+    /// Forgets any memoized acceptance for `token`. Used by the UI-test harnesses
+    /// to reset state between hermetic launches without reconstructing the key.
+    func clearAcceptedToken(_ token: String) {
+        defaults.removeObject(forKey: acceptedTokenKey(token))
+    }
+
     /// Records that this device joined `treeId` as a viewer with `rootPersonId` as
     /// its focal, and switches the app to that tree by writing the shared "treeId"
     /// key (the same backing store as @AppStorage("treeId")).

@@ -54,15 +54,12 @@ enum UITestSupport {
     /// An empty in-memory container with owner/viewer state cleared, so the
     /// acceptance flow starts from a clean signed-in state and imports into it.
     static func makeEmptyContainer() -> ModelContainer {
-        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId", acceptedTokenKey] {
+        for key in ["ownerPersonId", "treeId", "viewerTreeIds", "ownerTreeId"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
+        ViewerStore().clearAcceptedToken(launchAcceptToken)
         return makeInMemoryContainer(label: "empty")
     }
-
-    /// The defaults key the re-accept memo writes for the launch token — cleared by
-    /// the hermetic containers so a memo can't leak across UI-test launches.
-    private static let acceptedTokenKey = "acceptedToken:\(launchAcceptToken)"
 
     /// Builds an in-memory container seeded with a tiny tree (root + partner + one
     /// child) and writes the viewer UserDefaults so ContentView routes to a
@@ -71,7 +68,7 @@ enum UITestSupport {
         // Become a pure viewer: drop any owner identity, mark this tree as viewed.
         UserDefaults.standard.removeObject(forKey: "ownerPersonId")
         UserDefaults.standard.removeObject(forKey: "ownerTreeId")
-        UserDefaults.standard.removeObject(forKey: acceptedTokenKey)
+        ViewerStore().clearAcceptedToken(launchAcceptToken)
         ViewerStore().addViewerTree(treeId, rootPersonId: rootId)
 
         let container = makeInMemoryContainer(label: "seeded viewer")
@@ -85,7 +82,7 @@ enum UITestSupport {
     /// opening one's own invite doesn't flip the app into read-only viewer mode.
     static func makeSeededOwnerContainer() -> ModelContainer {
         UserDefaults.standard.removeObject(forKey: "viewerTreeIds")
-        UserDefaults.standard.removeObject(forKey: acceptedTokenKey)
+        ViewerStore().clearAcceptedToken(launchAcceptToken)
         UserDefaults.standard.set(rootId.uuidString, forKey: "ownerPersonId")
         UserDefaults.standard.set(treeId.uuidString, forKey: "treeId")
         ViewerStore().setOwnerTree(treeId)

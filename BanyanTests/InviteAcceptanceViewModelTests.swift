@@ -151,9 +151,46 @@ struct InviteAcceptanceViewModelTests {
         // When the owner re-taps their own link
         await viewModel.accept(token: "own-link", context: context)
 
-        // Then it resolves to success from the memo — no second RPC call.
+        // Then it resolves to success from the memo — no second RPC call — and the
+        // owner is still NOT registered as a viewer (the re-activation only applies
+        // to viewed trees; re-registering the owned tree would lock read-only).
         #expect(viewModel.state == .success(treeId: treeId))
         #expect(service.acceptedTokens == ["own-link"])
+        #expect(store.viewerTreeIds.isEmpty)
+    }
+
+    @Test func reacceptingAViewedTreeReactivatesItAsTheCurrentTree() async throws {
+        // Given a viewer who accepted tree A, then tree B — so B is the active tree
+        let treeA = UUID(); let rootA = UUID()
+        let treeB = UUID(); let rootB = UUID()
+        let defaults = UserDefaults(suiteName: "InviteVMReactivate-\(UUID().uuidString)")!
+        let store = ViewerStore(defaults: defaults)
+        let service = MockInviteAcceptanceService()
+        let viewModel = makeViewModel(service: service, store: store)
+        let context = try makeContext()
+
+        service.treeIdToReturn = treeA
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(rootA, treeId: treeA)], unions: [], links: []
+        )
+        await viewModel.accept(token: "link-A", context: context)
+
+        service.treeIdToReturn = treeB
+        service.snapshotToReturn = SharedTreeSnapshot(
+            persons: [personDTO(rootB, treeId: treeB)], unions: [], links: []
+        )
+        await viewModel.accept(token: "link-B", context: context)
+        #expect(defaults.string(forKey: "treeId") == treeB.uuidString)
+
+        // When the viewer re-opens tree A's link
+        await viewModel.accept(token: "link-A", context: context)
+
+        // Then it succeeds from the memo (no third RPC call) AND switches the active
+        // tree back to A, restoring A's stored root — not leaving them stuck on B.
+        #expect(viewModel.state == .success(treeId: treeA))
+        #expect(service.acceptedTokens == ["link-A", "link-B"])
+        #expect(defaults.string(forKey: "treeId") == treeA.uuidString)
+        #expect(store.rootPersonId(forTree: treeA) == rootA)
     }
 
     @Test func acceptFailureEndsInFailureAndRecordsNothing() async throws {

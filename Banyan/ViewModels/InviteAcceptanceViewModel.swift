@@ -46,6 +46,15 @@ final class InviteAcceptanceViewModel {
         // again would flash a failure screen over a tree the viewer can already
         // see. This runs before `.accepting`, so there's no spinner flicker either.
         if let treeId = store.treeId(forAcceptedToken: token) {
+            // Re-activate the tree so re-opening the link actually returns the
+            // viewer to it — the normal accept path switches the active tree via
+            // addViewerTree, and the short-circuit must too, or a viewer with more
+            // than one accepted tree would see "success" while staying on another.
+            // The owner's own tree is never re-registered as a viewed tree (that
+            // would lock them into read-only mode).
+            if !store.isOwnedTree(treeId) {
+                store.addViewerTree(treeId, rootPersonId: store.rootPersonId(forTree: treeId))
+            }
             state = .success(treeId: treeId)
             return
         }
