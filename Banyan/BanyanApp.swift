@@ -67,6 +67,18 @@ struct BanyanApp: App {
             modelContainer = UITestSupport.makeReacceptedViewerContainer()
             return
         }
+        if UITestSupport.isTreeSwitcherLaunch {
+            // Owner of one tree who also views a second; the viewer launch-refresh
+            // uses the throwing stub so it can't wipe the seed. Exercises the switcher.
+            let s = BanyanApp.makeUITestServices()
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
+            inviteAcceptanceService = UITestInviteService()
+            modelContainer = UITestSupport.makeTreeSwitcherContainer()
+            return
+        }
         if UITestSupport.isOwnerOwnInviteLaunch {
             // Signed-in owner of the invited tree + a stub accept service that
             // returns that same tree id, so the owner-opens-own-invite guard runs.

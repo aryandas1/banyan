@@ -37,6 +37,12 @@ enum UITestSupport {
         ProcessInfo.processInfo.arguments.contains("-uiTestReaccept")
     }
 
+    /// True when the app should stand up as an owner who ALSO views a second tree,
+    /// active on the owned tree — exercises the tree switcher (owned ⇄ viewed).
+    static var isTreeSwitcherLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestTreeSwitcher")
+    }
+
     /// Whether a launch flag asks ContentView to present the acceptance sheet on
     /// launch (the accept-flow, owner-own-invite, and re-accept harnesses all do).
     static var presentsAcceptSheetOnLaunch: Bool {
@@ -50,6 +56,9 @@ enum UITestSupport {
     // Fixed ids so the test and the seed agree on the tree/root.
     static let treeId = UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID()
     static let rootId = UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID()
+    // A second tree this device only views (used by the tree-switcher harness).
+    static let tree2Id = UUID(uuidString: "44444444-4444-4444-4444-444444444444") ?? UUID()
+    static let root2Id = UUID(uuidString: "55555555-5555-5555-5555-555555555555") ?? UUID()
 
     /// An empty in-memory container with owner/viewer state cleared, so the
     /// acceptance flow starts from a clean signed-in state and imports into it.
@@ -106,6 +115,36 @@ enum UITestSupport {
         let container = makeInMemoryContainer(label: "reaccepted viewer")
         seedTinyTree(into: ModelContext(container))
         return container
+    }
+
+    /// Builds a container for the tree-switcher test: the device OWNS the "Ravi"
+    /// tree (active + editable) and also VIEWS a second "Priya" tree. Both trees'
+    /// persons live in the one store, so the switcher can label each by its focal.
+    static func makeTreeSwitcherContainer() -> ModelContainer {
+        for key in ["viewerTreeIds", "ownerTreeId"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        let store = ViewerStore()
+        // Register the viewed tree first (addViewerTree makes it the active tree)…
+        store.addViewerTree(tree2Id, rootPersonId: root2Id)
+        // …then make the OWNED tree the active + owned one.
+        UserDefaults.standard.set(rootId.uuidString, forKey: "ownerPersonId")
+        UserDefaults.standard.set(treeId.uuidString, forKey: "treeId")
+        store.setOwnerTree(treeId)
+
+        let container = makeInMemoryContainer(label: "tree switcher")
+        let context = ModelContext(container)
+        seedTinyTree(into: context)
+        seedSecondTree(into: context)
+        return container
+    }
+
+    /// Inserts the viewed second tree's focal person ("Priya"), enough for the
+    /// switcher to label it and for the read-only tree to render after a switch.
+    private static func seedSecondTree(into context: ModelContext) {
+        let root = Person(id: root2Id, treeId: tree2Id, firstName: "Priya", lastName: "Rao")
+        context.insert(root)
+        try? context.save()
     }
 
     /// An empty in-memory container for the current schema; traps with `label` if

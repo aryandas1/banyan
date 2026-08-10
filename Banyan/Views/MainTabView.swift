@@ -27,33 +27,54 @@ struct MainTabView: View {
     /// the reactive focal resolved for the shared tree. Falls back to the all-zero
     /// UUID if neither resolves — the tab still renders rather than crashing.
     private var rootPersonId: UUID {
-        if isReadOnly, let root = viewerRoot {
-            return root
+        if isReadOnly {
+            // Prefer the root stored for THIS tree, so a switch (including viewed →
+            // viewed) centres on the right person immediately rather than the
+            // previous tree's stale focal. Fall back to the reactive viewerRoot,
+            // which the .task recomputes to self-heal an empty accept (no stored root).
+            if let root = storedViewerRoot ?? viewerRoot { return root }
+            return .placeholder
         }
         return UUID(uuidString: ownerPersonIdString) ?? .placeholder
     }
 
+    /// The focal stored for the active viewed tree, read synchronously so a tree
+    /// switch has an immediate centre without waiting for the async resolve.
+    private var storedViewerRoot: UUID? {
+        guard let treeId = UUID(uuidString: treeIdString) else { return nil }
+        return ViewerStore().rootPersonId(forTree: treeId)
+    }
+
     var body: some View {
         TabView {
+            // Keyed on the active tree so switching rebuilds the tab with the new
+            // tree's focal (fresh browse state) rather than reusing the old one.
             TreeTabView(ownerPersonId: rootPersonId)
+                .id(treeIdString)
                 .tabItem { Label("Tree", systemImage: "person.3.fill") }
 
             PeopleListView(ownerPersonId: rootPersonId)
+                .id(treeIdString)
                 .tabItem { Label("People", systemImage: "list.bullet") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
-        .task {
+        // Re-runs on launch AND whenever the active tree changes (a switch), so the
+        // viewer focal + photo reconciliation follow the current tree.
+        .task(id: treeIdString) {
             // Resolve the focal before the network refresh so the tree renders
             // immediately from local state, then let the refresh update it.
             if isReadOnly, let treeId = UUID(uuidString: treeIdString) {
                 viewerRoot = resolveViewerRoot(treeId: treeId)
-            } else if let treeId = UUID(uuidString: treeIdString) {
-                // Backfill the owned-tree marker for owners who onboarded before it
-                // existed (set-once, so a no-op once recorded). Guarded on !isReadOnly
-                // so a currently-viewed tree is never mis-recorded as owned.
-                ViewerStore().setOwnerTree(treeId)
+            } else {
+                viewerRoot = nil
+                if let treeId = UUID(uuidString: treeIdString) {
+                    // Backfill the owned-tree marker for owners who onboarded before it
+                    // existed (set-once, so a no-op once recorded). Guarded on !isReadOnly
+                    // so a currently-viewed tree is never mis-recorded as owned.
+                    ViewerStore().setOwnerTree(treeId)
+                }
             }
             await syncPhotosOnLaunch()
         }
