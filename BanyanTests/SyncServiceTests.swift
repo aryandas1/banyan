@@ -126,4 +126,54 @@ struct SyncServiceTests {
         #expect(sync.lastSyncError != nil)   // failure is recorded, not surfaced
         #expect(sync.lastSyncDate == nil)    // never marked as a successful sync
     }
+
+    // MARK: - isSyncing (the live "Saving…" signal for the sync-status indicator)
+
+    /// Observes SyncService from inside its own `currentUserId` closure — which runs
+    /// mid-`performSync`, after `isSyncing` is set — so we can assert the flag is
+    /// true during a sync without a suspending mock.
+    @MainActor
+    private final class SyncProbe {
+        weak var service: SyncService?
+        var sawSyncingTrue = false
+    }
+
+    @Test func isSyncingIsFalseAtRest() {
+        let sync = SyncService(remote: MockRemoteStore(), currentUserId: { UUID() })
+        #expect(sync.isSyncing == false)
+    }
+
+    @Test func isSyncingIsTrueDuringSyncAndFalseAfterSuccess() async throws {
+        let (builder, treeId, _, _, _) = try makeTree()
+        let store = MockRemoteStore()
+        let probe = SyncProbe()
+        let sync = SyncService(
+            remote: store,
+            currentUserId: { [probe] in
+                if probe.service?.isSyncing == true { probe.sawSyncingTrue = true }
+                return UUID()
+            },
+            debounce: .milliseconds(5)
+        )
+        probe.service = sync
+
+        sync.scheduleSync(treeId: treeId, context: builder.context)
+        await sync.awaitPendingSync()
+
+        #expect(probe.sawSyncingTrue)      // flag was up while the sync ran
+        #expect(sync.isSyncing == false)   // and cleared once it finished
+    }
+
+    @Test func isSyncingResetsAfterASwallowedError() async throws {
+        let (builder, treeId, _, _, _) = try makeTree()
+        let store = MockRemoteStore()
+        store.errorToThrow = MockError()
+        let sync = SyncService(remote: store, currentUserId: { UUID() }, debounce: .milliseconds(5))
+
+        sync.scheduleSync(treeId: treeId, context: builder.context)
+        await sync.awaitPendingSync()
+
+        #expect(sync.isSyncing == false)   // the defer clears it even on the failure path
+        #expect(sync.lastSyncError != nil)
+    }
 }

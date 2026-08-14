@@ -33,6 +33,10 @@ final class SyncService: SyncScheduling {
     private(set) var lastSyncError: Error?
     /// When the most recent sync last completed successfully. nil until then.
     private(set) var lastSyncDate: Date?
+    /// True while a sync is in flight. The only live "Saving…" signal — both
+    /// `scheduleSync` and `syncNow` funnel through `performSync`, which flips this
+    /// around the whole attempt. Observed by the owner-only sync-status indicator.
+    private(set) var isSyncing = false
 
     /// - Parameters:
     ///   - remote: the backing store (Supabase in the app, a mock in tests).
@@ -79,6 +83,8 @@ final class SyncService: SyncScheduling {
     // MARK: - Sync
 
     private func performSync(treeId: UUID, context: ModelContext) async {
+        isSyncing = true
+        defer { isSyncing = false }
         do {
             // Resolve the signed-in user (ensures an anonymous session in the app),
             // then create the tree row before its rows can reference it.

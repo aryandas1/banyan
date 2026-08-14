@@ -132,6 +132,35 @@ final class ViewerModeUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["View only"].exists, "no banner back on the owned tree")
     }
 
+    // The owner-only sync-status indicator: an owner whose push fails must see a
+    // calm "couldn't save" line (never a raw error). -uiTestSyncFailed stands the
+    // app up as an owner backed by a remote that always throws, then forces a sync.
+    func testOwnerSeesSyncFailureStatus() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestSyncFailed"]
+        app.launch()
+
+        // The owner's tree renders, editable…
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "the owner's tree should render")
+        XCTAssertTrue(app.buttons["Share"].exists, "the owner's tree is editable (Share present)")
+        // …and the failed sync surfaces as the calm, non-technical copy.
+        XCTAssertTrue(app.staticTexts["Couldn't save — will retry"].waitForExistence(timeout: 15),
+                      "a failed push should surface the friendly 'couldn't save' status to the owner")
+    }
+
+    // The indicator is owner-only: a read-only viewer never pushes, so no sync
+    // status chrome should appear at all (the SyncStatusView isn't in the viewer's
+    // view tree).
+    func testViewerSeesNoSyncStatus() {
+        let app = launchViewerApp()
+
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "the shared tree should render")
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "syncStatus").firstMatch.exists,
+                       "a read-only viewer must not see any sync-status indicator")
+    }
+
     func testViewerPersonSheetHasNoEditControls() {
         let app = launchViewerApp()
 

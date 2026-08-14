@@ -79,6 +79,23 @@ struct BanyanApp: App {
             modelContainer = UITestSupport.makeTreeSwitcherContainer()
             return
         }
+        if UITestSupport.isSyncFailedLaunch {
+            // Owner whose remote always throws: force a sync so `lastSyncError` is
+            // set, driving the owner-only sync-status indicator into "couldn't save".
+            let s = BanyanApp.makeUITestServices(remote: UITestFailingRemoteStore())
+            _authState = State(initialValue: s.auth)
+            _syncService = State(initialValue: s.sync)
+            shareService = s.share
+            photoSyncService = s.photo
+            inviteAcceptanceService = UITestInviteService()
+            let container = UITestSupport.makeSeededOwnerContainer()
+            modelContainer = container
+            let sync = s.sync
+            Task { @MainActor in
+                await sync.syncNow(treeId: UITestSupport.treeId, context: container.mainContext)
+            }
+            return
+        }
         if UITestSupport.isOwnerOwnInviteLaunch {
             // Signed-in owner of the invited tree + a stub accept service that
             // returns that same tree id, so the owner-opens-own-invite guard runs.
@@ -171,7 +188,7 @@ struct BanyanApp: App {
     /// The composition shared by every hermetic UI-test launch branch: a stub auth
     /// (instant sign-in) and the real sync/share/photo services over one client.
     /// Branches differ only in the invite service and seeded store.
-    private static func makeUITestServices() -> (
+    private static func makeUITestServices(remote: RemoteStore? = nil) -> (
         auth: AuthStateManager,
         sync: SyncService,
         share: any ShareServiceProtocol,
@@ -180,7 +197,7 @@ struct BanyanApp: App {
         let auth = AuthStateManager(authService: UITestAuthService())
         let client = SupabaseClientProvider.makeClient()
         let sync = SyncService(
-            remote: SupabaseRemoteStore(client: client),
+            remote: remote ?? SupabaseRemoteStore(client: client),
             currentUserId: { auth.userId ?? UUID() }
         )
         return (auth, sync, SupabaseShareService(client: client), PhotoSyncService(client: client))

@@ -43,6 +43,13 @@ enum UITestSupport {
         ProcessInfo.processInfo.arguments.contains("-uiTestTreeSwitcher")
     }
 
+    /// True when the app should stand up as an OWNER whose SyncService is backed by
+    /// a remote that always throws, then force a sync so `lastSyncError` is set —
+    /// exercises the owner-only sync-status indicator's "couldn't save" state.
+    static var isSyncFailedLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestSyncFailed")
+    }
+
     /// Whether a launch flag asks ContentView to present the acceptance sheet on
     /// launch (the accept-flow, owner-own-invite, and re-accept harnesses all do).
     static var presentsAcceptSheetOnLaunch: Bool {
@@ -200,6 +207,19 @@ final class UITestReacceptInviteService: InviteAcceptanceServiceProtocol {
     private struct AlreadyUsed: Error {}
     func acceptInvitation(token: String) async throws -> UUID { throw AlreadyUsed() }
     func fetchSharedTree(treeId: UUID) async throws -> SharedTreeSnapshot { throw AlreadyUsed() }
+}
+
+/// A RemoteStore that fails every operation — simulates a misconfigured / offline
+/// backend so the owner-only sync-status indicator lands in its "couldn't save"
+/// state after a forced sync (the -uiTestSyncFailed harness).
+final class UITestFailingRemoteStore: RemoteStore {
+    private struct Offline: Error {}
+    func upsertTree(_ tree: TreeDTO) async throws { throw Offline() }
+    func upsert(_ persons: [PersonDTO]) async throws { throw Offline() }
+    func upsert(_ unions: [UnionDTO]) async throws { throw Offline() }
+    func upsert(_ links: [PersonUnionLinkDTO]) async throws { throw Offline() }
+    func remoteIds(in table: RemoteTable, treeId: UUID) async throws -> Set<UUID> { throw Offline() }
+    func delete(from table: RemoteTable, id: UUID) async throws { throw Offline() }
 }
 
 /// A stub invite service that SUCCEEDS with a one-person canned tree, so the
