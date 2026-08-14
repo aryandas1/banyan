@@ -41,10 +41,9 @@ struct SyncStatusView: View {
     /// stays free of SwiftUI (and on the coverage gate).
     private func color(for tone: SyncStatus.Tone) -> Color {
         switch tone {
-        case .neutral:  return BanyanTheme.Color.textSecondary
-        case .working:  return BanyanTheme.Color.textSecondary
-        case .positive: return BanyanTheme.Color.positive
-        case .warning:  return BanyanTheme.Color.warning
+        case .neutral, .working: return BanyanTheme.Color.textSecondary
+        case .positive:          return BanyanTheme.Color.positive
+        case .warning:           return BanyanTheme.Color.warning
         }
     }
 }
