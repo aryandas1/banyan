@@ -91,7 +91,13 @@ struct TreeTabView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-            if isReadOnly { ViewOnlyBanner() }
+            if isReadOnly {
+                ViewOnlyBanner()
+            } else {
+                // Owner-only cloud-save indicator; self-hides until there's
+                // something to report. Viewers are pull-only, so never shown.
+                SyncStatusView()
+            }
             Group {
                 if let vm = threeGenViewModel,
                    treePeople.contains(where: { $0.id == focalPersonId }) {

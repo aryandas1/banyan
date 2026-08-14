@@ -35,6 +35,11 @@ enum BanyanTheme {
         static let textTertiary   = SwiftUI.Color(hex: "#A09890")
         /// Tab bar, sheet drag handle
         static let chrome         = SwiftUI.Color(hex: "#E5E0D8")
+        /// Reassuring green — a successful cloud save ("Saved").
+        static let positive       = SwiftUI.Color(hex: "#0D7A5F")
+        /// Calm amber — a save that didn't go through but will retry. Deliberately
+        /// not an alarming red, for older, non-technical users.
+        static let warning        = SwiftUI.Color(hex: "#B45309")
     }
 
     // MARK: - Avatar palette
