@@ -35,6 +35,9 @@ targets:
     info:
       path: Banyan/Info.plist
       properties:
+        # The app uses only standard HTTPS (Supabase) — export-exempt encryption.
+        # Declaring this skips the export-compliance prompt on every TestFlight upload.
+        ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIApplicationSupportsIndirectInputEvents: true
