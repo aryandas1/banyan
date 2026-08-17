@@ -1,132 +1,80 @@
 // AppleAuthService.swift
-// Production auth: Sign in with Apple, verified by Supabase. The full UI and
-// delegate flow are built; the Supabase exchange is stubbed until an Apple
-// Developer account is available.
+// Production auth: Sign in with Apple, verified by Supabase. The native
+// SignInWithAppleButton (in SignInView) owns the Apple sheet and the nonce; this
+// service just (a) restores an existing Supabase session at launch and (b)
+// exchanges the button's identity token for a session. It deliberately does NOT
+// present ASAuthorization itself — driving the flow from the button removes the
+// old CheckedContinuation (and its main-thread-delegate-vs-Task data race) and
+// avoids double-presenting a second Apple sheet.
 //
-// TODO (requires Apple Developer account):
-//   1. Register a Service ID in the Apple Developer portal.
-//   2. Add "Sign in with Apple" capability in Xcode → Signing & Capabilities.
-//   3. Configure the Apple provider in Supabase → Authentication → Providers →
-//      Apple (paste Service ID + private key).
-//   4. Uncomment the `signInWithIdToken` block below and remove the
-//      `AuthError.notConfigured` resume. No other changes needed.
+// External setup (one-time): App ID `com.aryandas.Banyan` with the Sign in with
+// Apple capability; Supabase → Auth → Providers → Apple enabled with
+// `com.aryandas.Banyan` in "Client IDs" (native needs no Service ID / OAuth
+// secret). Until that's saved, signInWithIdToken returns an invalid-client error.
 //
-// Account migration (record for when creds land): prefer LINKING the anonymous
-// identity to Apple (Supabase can upgrade an anon user, preserving the uid and
-// already-synced data) over a fresh signInWithIdToken, which mints a new uid
-// and orphans the tree under RLS (the 42501 trap). No migration code here —
-// Apple is stubbed — but the seam is ready.
+// Account migration (deferred — see dev-plan §1, decision D1): sign-in happens
+// BEFORE onboarding and there are no real anonymous users, so a fresh user has no
+// data to strand under RLS, and Apple returns the same uid on reinstall
+// (reinstall-safety for free). If "try before sign-in" is ever added, LINK the
+// anonymous identity to Apple rather than a plain signInWithIdToken (which mints a
+// new uid and orphans the tree — the 42501 trap).
 //
 // Lives in Networking (not Services) alongside SupabaseRemoteStore: it wraps the
-// live Supabase client and Apple's UI, so it can't be unit-tested and stays off
-// the `make coverage` gate.
+// live Supabase client, so it can't be unit-tested and stays off the coverage gate.
 
 import Foundation
-import AuthenticationServices
 import Supabase
-import UIKit
 
-final class AppleAuthService: NSObject, AuthServiceProtocol {
+final class AppleAuthService: AuthServiceProtocol {
 
     private let client: SupabaseClient
     private(set) var userId: UUID?
-    private var continuation: CheckedContinuation<UUID, Error>?
 
     /// Injects the shared Supabase client built at the composition root.
     init(client: SupabaseClient) {
         self.client = client
     }
 
-    func signIn() async throws -> UUID {
-        try await withCheckedThrowingContinuation { continuation in
-            // A newer sign-in supersedes any pending one (don't leak the continuation).
-            self.continuation?.resume(throwing: AuthError.cancelled)
-            self.continuation = continuation
+    /// Restores an existing Supabase session with no UI; throws when signed out so
+    /// the sign-in screen shows. Apple's sheet is only presented interactively.
+    @discardableResult
+    func restoreSession() async throws -> UUID {
+        let session = try await client.auth.session
+        let id = session.user.id
+        userId = id
+        return id
+    }
 
-            let request = ASAuthorizationAppleIDProvider().createRequest()
-            request.requestedScopes = [.fullName, .email]
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = self
-            controller.presentationContextProvider = self
-            controller.performRequests()
+    /// Exchanges a native Apple identity token for a Supabase session. `rawNonce`
+    /// must be the un-hashed nonce whose SHA256 was set on the ASAuthorization
+    /// request, so Supabase can verify the token's embedded nonce.
+    @discardableResult
+    func completeSignIn(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async throws -> UUID {
+        let session = try await client.auth.signInWithIdToken(
+            credentials: .init(provider: .apple, idToken: idToken, nonce: rawNonce)
+        )
+        let id = session.user.id
+        userId = id
+
+        // Apple provides the name only on the FIRST sign-in — capture it then.
+        if let fullName {
+            let name = [fullName.givenName, fullName.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            if !name.isEmpty {
+                try await updateDisplayName(name, for: id)
+            }
         }
+        return id
     }
 
     func signOut() async throws {
         try await client.auth.signOut()
         userId = nil
     }
-}
 
-// MARK: - ASAuthorizationControllerDelegate
-
-extension AppleAuthService: ASAuthorizationControllerDelegate {
-
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithAuthorization authorization: ASAuthorization
-    ) {
-        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let tokenData = credential.identityToken,
-              let _ = String(data: tokenData, encoding: .utf8)
-        else {
-            continuation?.resume(throwing: AuthError.invalidCredential)
-            continuation = nil
-            return
-        }
-
-        Task {
-            // TODO: uncomment when the Apple provider is configured in Supabase.
-            // let session = try await client.auth.signInWithIdToken(
-            //     credentials: .init(provider: .apple, idToken: token)
-            // )
-            // let id = session.user.id
-            // self.userId = id
-            //
-            // // Apple provides the name only on first sign-in — capture it then.
-            // let name = [
-            //     credential.fullName?.givenName,
-            //     credential.fullName?.familyName
-            // ].compactMap { $0 }.joined(separator: " ")
-            // if !name.isEmpty {
-            //     try await updateDisplayName(name, for: id)
-            // }
-            //
-            // self.continuation?.resume(returning: id)
-            // self.continuation = nil
-
-            // Until the Apple provider is configured, fail gracefully instead of
-            // crashing — keeps the app testable and doesn't leak the continuation.
-            self.continuation?.resume(throwing: AuthError.notConfigured)
-            self.continuation = nil
-        }
-    }
-
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithError error: Error
-    ) {
-        continuation?.resume(throwing: error)
-        continuation = nil
-    }
-}
-
-// MARK: - ASAuthorizationControllerPresentationContextProviding
-
-extension AppleAuthService: ASAuthorizationControllerPresentationContextProviding {
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first ?? ASPresentationAnchor()
-    }
-}
-
-// MARK: - Helpers
-
-extension AppleAuthService {
-    // The `profiles` row is auto-created by the `on_auth_user_created` trigger,
-    // so this only UPDATEs — never insert a duplicate. Uses the injected client.
-    // Referenced by the stubbed sign-in block above; wired in when Apple is live.
+    /// The `profiles` row is auto-created by the `on_auth_user_created` trigger,
+    /// so this only UPDATEs — never inserts a duplicate.
     private func updateDisplayName(_ name: String, for userId: UUID) async throws {
         try await client
             .from("profiles")
@@ -139,7 +87,6 @@ extension AppleAuthService {
 /// Errors surfaced by the auth layer.
 enum AuthError: Error {
     case invalidCredential
-    case notConfigured   // Apple provider not yet set up in Supabase
-    case cancelled       // a newer sign-in superseded a pending one
+    case notConfigured   // Apple provider not yet set up in Supabase / unsupported
     case notSignedIn     // used by the sync closure to skip when signed out
 }

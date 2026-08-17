@@ -25,7 +25,7 @@ final class AnonymousAuthService: AuthServiceProtocol {
         self.client = client
     }
 
-    func signIn() async throws -> UUID {
+    func restoreSession() async throws -> UUID {
         if let existing = try? await client.auth.session {
             let id = existing.user.id
             userId = id

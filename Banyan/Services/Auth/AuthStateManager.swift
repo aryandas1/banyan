@@ -24,23 +24,25 @@ final class AuthStateManager {
     }
 
     /// Called once at startup: restores an existing session, or lands on
-    /// `.signedOut` so the sign-in screen shows.
+    /// `.signedOut` so the sign-in screen shows. Never presents UI.
     func initialize() async {
         do {
-            let id = try await authService.signIn()
+            let id = try await authService.restoreSession()
             state = .signedIn(userId: id)
         } catch {
             state = .signedOut
         }
     }
 
-    /// Called from the sign-in button. Transitions to `.signedIn` on success.
-    func signIn() async {
+    /// Called from the Sign in with Apple button's completion with the native
+    /// credential. Exchanges it for a session and transitions to `.signedIn` on
+    /// success, else falls back to `.signedOut`.
+    func completeAppleSignIn(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async {
         do {
-            let id = try await authService.signIn()
+            let id = try await authService.completeSignIn(idToken: idToken, rawNonce: rawNonce, fullName: fullName)
             state = .signedIn(userId: id)
         } catch {
-            print("[AuthStateManager] Sign-in failed: \(error)")
+            print("[AuthStateManager] Apple sign-in failed: \(error)")
             state = .signedOut
         }
     }

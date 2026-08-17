@@ -2,18 +2,22 @@
 // Sign-in screen, designed for older users: large app name, one line of
 // description, a single clear action, no fine print beyond a privacy reassurance.
 //
-// Dev scaffold uses a plain "Get started" button that drives the anonymous
-// service directly — SignInWithAppleButton presents the real Apple sheet, which
-// can't complete in the simulator. Swap in the Apple button (kept below in a
-// comment) once AppleAuthService is wired to real credentials.
+// The real Sign in with Apple button owns the Apple sheet and the nonce; its
+// completion hands the identity token to AuthStateManager, which exchanges it
+// with Supabase. Sign in with Apple works on the iOS Simulator (with an Apple ID
+// signed into it), so this is exercised for real there.
 
 import SwiftUI
+import AuthenticationServices
 
 struct SignInView: View {
 
     @Environment(AuthStateManager.self) private var authState
     // Scales the hero icon with Dynamic Type (accessibility goal for older users).
     @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 64
+    // The raw nonce for the in-flight request; its SHA256 goes to Apple, the raw
+    // value to Supabase. Held between the request and completion closures.
+    @State private var currentNonce: String?
 
     var body: some View {
         VStack(spacing: 40) {
@@ -34,29 +38,18 @@ struct SignInView: View {
 
             Spacer()
 
-            // Dev (AnonymousAuthService): plain button, no Apple sheet.
-            Button {
-                Task { await authState.signIn() }
-            } label: {
-                Text("Get started")
-                    .font(.title3.bold())
-                    .frame(maxWidth: .infinity, minHeight: 56)
+            SignInWithAppleButton(.signIn) { request in
+                let raw = AppleNonce.randomRawNonce()
+                currentNonce = raw
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = AppleNonce.sha256(raw)
+            } onCompletion: { result in
+                handleCompletion(result)
             }
-            .buttonStyle(.borderedProminent)
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 56)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 32)
-
-            // Production (AppleAuthService): swap the button above for this once
-            // Apple credentials are configured. The delegate handles the result;
-            // AuthStateManager observes the session change.
-            //
-            // SignInWithAppleButton(.signIn) { request in
-            //     request.requestedScopes = [.fullName, .email]
-            // } onCompletion: { _ in
-            //     Task { await authState.signIn() }
-            // }
-            // .signInWithAppleButtonStyle(.black)
-            // .frame(height: 56)
-            // .padding(.horizontal, 32)
 
             Text("Your tree is private and only shared with people you invite.")
                 .font(.footnote)
@@ -68,6 +61,21 @@ struct SignInView: View {
                 .frame(height: 40)
         }
     }
+
+    /// Extracts the identity token + raw nonce from the Apple credential and hands
+    /// them to AuthStateManager for the Supabase exchange. A cancel / missing token
+    /// is a no-op — the user simply stays on this screen.
+    private func handleCompletion(_ result: Result<ASAuthorization, Error>) {
+        guard case .success(let authorization) = result,
+              let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
+              let idToken = String(data: tokenData, encoding: .utf8),
+              let rawNonce = currentNonce
+        else { return }
+
+        let fullName = credential.fullName
+        Task { await authState.completeAppleSignIn(idToken: idToken, rawNonce: rawNonce, fullName: fullName) }
+    }
 }
 
 #Preview {
@@ -78,6 +86,6 @@ struct SignInView: View {
 /// A no-op auth service so the preview renders without a Supabase client.
 private final class PreviewAuthService: AuthServiceProtocol {
     var userId: UUID?
-    func signIn() async throws -> UUID { UUID() }
+    func restoreSession() async throws -> UUID { UUID() }
     func signOut() async throws {}
 }
