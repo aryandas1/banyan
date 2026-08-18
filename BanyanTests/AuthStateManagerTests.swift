@@ -92,9 +92,10 @@ struct AuthStateManagerTests {
         let manager = AuthStateManager(authService: MockAuthService(signInResult: .success(id)))
 
         // When completing an Apple sign-in from the button
-        await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
+        let ok = await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
 
-        // Then the state carries that id
+        // Then it reports success and the state carries that id
+        #expect(ok)
         #expect(isSignedIn(manager.state, as: id))
     }
 
@@ -103,9 +104,10 @@ struct AuthStateManagerTests {
         let manager = AuthStateManager(authService: MockAuthService(signInResult: .failure(MockError())))
 
         // When completing an Apple sign-in
-        await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
+        let ok = await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
 
-        // Then the state is signed out
+        // Then it reports failure and the state is signed out
+        #expect(!ok)
         #expect(isSignedOut(manager.state))
     }
 

@@ -57,12 +57,15 @@ final class AppleAuthService: AuthServiceProtocol {
         userId = id
 
         // Apple provides the name only on the FIRST sign-in — capture it then.
+        // Best-effort: the session is already established above, so a failed
+        // display-name write (a transient blip right after auth) must NOT fail an
+        // otherwise-successful sign-in and bounce the user back to signed-out.
         if let fullName {
             let name = [fullName.givenName, fullName.familyName]
                 .compactMap { $0 }
                 .joined(separator: " ")
             if !name.isEmpty {
-                try await updateDisplayName(name, for: id)
+                try? await updateDisplayName(name, for: id)
             }
         }
         return id
@@ -86,7 +89,6 @@ final class AppleAuthService: AuthServiceProtocol {
 
 /// Errors surfaced by the auth layer.
 enum AuthError: Error {
-    case invalidCredential
     case notConfigured   // Apple provider not yet set up in Supabase / unsupported
     case notSignedIn     // used by the sync closure to skip when signed out
 }

@@ -18,6 +18,9 @@ struct SignInView: View {
     // The raw nonce for the in-flight request; its SHA256 goes to Apple, the raw
     // value to Supabase. Held between the request and completion closures.
     @State private var currentNonce: String?
+    // Set when a genuine sign-in attempt fails (not a user cancel), so we can show
+    // a calm retry message instead of the button silently doing nothing.
+    @State private var signInFailed = false
 
     var body: some View {
         VStack(spacing: 40) {
@@ -39,6 +42,7 @@ struct SignInView: View {
             Spacer()
 
             SignInWithAppleButton(.signIn) { request in
+                signInFailed = false
                 let raw = AppleNonce.randomRawNonce()
                 currentNonce = raw
                 request.requestedScopes = [.fullName, .email]
@@ -50,6 +54,14 @@ struct SignInView: View {
             .frame(height: 56)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 32)
+
+            if signInFailed {
+                Text("Couldn't sign in — please try again.")
+                    .font(.footnote)
+                    .foregroundStyle(BanyanTheme.Color.warning)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
 
             Text("Your tree is private and only shared with people you invite.")
                 .font(.footnote)
@@ -63,18 +75,34 @@ struct SignInView: View {
     }
 
     /// Extracts the identity token + raw nonce from the Apple credential and hands
-    /// them to AuthStateManager for the Supabase exchange. A cancel / missing token
-    /// is a no-op — the user simply stays on this screen.
+    /// them to AuthStateManager for the Supabase exchange. A user cancel stays
+    /// silent; a genuine failure (Apple error, missing token, or a failed exchange)
+    /// shows the retry message rather than leaving the button feeling dead.
     private func handleCompletion(_ result: Result<ASAuthorization, Error>) {
-        guard case .success(let authorization) = result,
-              let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let tokenData = credential.identityToken,
-              let idToken = String(data: tokenData, encoding: .utf8),
-              let rawNonce = currentNonce
-        else { return }
+        switch result {
+        case .failure(let error):
+            if !isCancellation(error) { signInFailed = true }
 
-        let fullName = credential.fullName
-        Task { await authState.completeAppleSignIn(idToken: idToken, rawNonce: rawNonce, fullName: fullName) }
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8),
+                  let rawNonce = currentNonce
+            else {
+                signInFailed = true
+                return
+            }
+            let fullName = credential.fullName
+            Task { @MainActor in
+                let ok = await authState.completeAppleSignIn(idToken: idToken, rawNonce: rawNonce, fullName: fullName)
+                if !ok { signInFailed = true }
+            }
+        }
+    }
+
+    /// True when the Apple sheet failure is just the user backing out — no error UI.
+    private func isCancellation(_ error: Error) -> Bool {
+        (error as? ASAuthorizationError)?.code == .canceled
     }
 }
 

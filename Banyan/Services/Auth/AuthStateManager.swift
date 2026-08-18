@@ -36,14 +36,18 @@ final class AuthStateManager {
 
     /// Called from the Sign in with Apple button's completion with the native
     /// credential. Exchanges it for a session and transitions to `.signedIn` on
-    /// success, else falls back to `.signedOut`.
-    func completeAppleSignIn(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async {
+    /// success, else falls back to `.signedOut`. Returns whether it succeeded, so
+    /// the sign-in screen can show a message on a genuine failure.
+    @discardableResult
+    func completeAppleSignIn(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async -> Bool {
         do {
             let id = try await authService.completeSignIn(idToken: idToken, rawNonce: rawNonce, fullName: fullName)
             state = .signedIn(userId: id)
+            return true
         } catch {
             print("[AuthStateManager] Apple sign-in failed: \(error)")
             state = .signedOut
+            return false
         }
     }
 
