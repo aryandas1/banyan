@@ -23,6 +23,15 @@ struct MainTabView: View {
     /// a refresh — the accept may have stored a nil root from an empty pull.
     @State private var viewerRoot: UUID?
 
+    /// The visible tab. Hoisted here so the People tab can switch to the Tree tab
+    /// when the user taps "See their family" on a person.
+    @State private var selectedTab: MainTab = .tree
+    /// A person the Tree tab should re-centre on, set by the People tab and consumed
+    /// (cleared) by TreeTabView once it focuses. nil when there's nothing pending.
+    @State private var pendingFocus: UUID?
+
+    private enum MainTab: Hashable { case tree, people, settings }
+
     /// The person the tree centres on. Owner: their own id from storage. Viewer:
     /// the reactive focal resolved for the shared tree. Falls back to the all-zero
     /// UUID if neither resolves — the tab still renders rather than crashing.
@@ -46,18 +55,26 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             // Keyed on the active tree so switching rebuilds the tab with the new
             // tree's focal (fresh browse state) rather than reusing the old one.
-            TreeTabView(ownerPersonId: rootPersonId)
+            TreeTabView(ownerPersonId: rootPersonId, focusRequest: $pendingFocus)
                 .id(treeIdString)
+                .tag(MainTab.tree)
                 .tabItem { Label("Tree", systemImage: "person.3.fill") }
 
-            PeopleListView(ownerPersonId: rootPersonId)
+            PeopleListView(ownerPersonId: rootPersonId) { personId in
+                // From the People tab, "See their family" re-centres the Tree tab
+                // on that person and switches to it.
+                pendingFocus = personId
+                selectedTab = .tree
+            }
                 .id(treeIdString)
+                .tag(MainTab.people)
                 .tabItem { Label("People", systemImage: "list.bullet") }
 
             SettingsView()
+                .tag(MainTab.settings)
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
         // Re-runs on launch AND whenever the active tree changes (a switch), so the

@@ -161,6 +161,37 @@ final class ViewerModeUITests: XCTestCase {
                        "a read-only viewer must not see any sync-status indicator")
     }
 
+    // Regression guard for the People→Tree "See their family" dead button: tapping
+    // it in the People list must switch to the Tree tab and re-centre it on that
+    // person. Proven via the "My tree" toolbar button, which is disabled only while
+    // the tree is focused on the owner — so it flipping to enabled means the focal
+    // moved. Reuses the owner-home seed from the tree-switcher harness (Ravi owns
+    // a tree with Meera + Anaya).
+    func testSeeTheirFamilyFromPeopleTabRecentresTree() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uiTestTreeSwitcher"]
+        app.launch()
+
+        // Starts on the owner's tree, focal = owner → "My tree" disabled.
+        XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
+                      "should open on the owner's tree")
+        XCTAssertFalse(app.buttons["My tree"].isEnabled, "focal starts on the owner")
+
+        // People → open a non-focal person → See their family.
+        app.tabBars.buttons["People"].tap()
+        let meera = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] 'Meera'")).firstMatch
+        XCTAssertTrue(meera.waitForExistence(timeout: 10), "Meera should appear in the People list")
+        meera.tap()
+        XCTAssertTrue(app.buttons["See their family"].waitForExistence(timeout: 5),
+                      "a non-focal person's sheet should offer 'See their family'")
+        app.buttons["See their family"].tap()
+
+        // Back on the Tree tab, re-centred on Meera → "My tree" now enabled.
+        XCTAssertTrue(app.buttons["My tree"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["My tree"].isEnabled,
+                      "See their family should re-centre the tree off the owner")
+    }
+
     func testViewerPersonSheetHasNoEditControls() {
         let app = launchViewerApp()
 

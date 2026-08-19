@@ -7,6 +7,9 @@ import SwiftData
 
 struct PeopleListView: View {
     let ownerPersonId: UUID
+    /// Called with a person id when the user taps "See their family" — the parent
+    /// (MainTabView) switches to the Tree tab and re-centres it on that person.
+    let onSeeFamily: (UUID) -> Void
 
     @AppStorage("treeId") private var treeIdString: String = ""
     @Query private var allPeople: [Person]
@@ -68,8 +71,9 @@ struct PeopleListView: View {
             .onAppear { rebuildLabelCache() }
             .onChange(of: treePeople.map(\.id)) { _, _ in rebuildLabelCache() }
             .sheet(item: $selectedPerson) { person in
-                // onSeeFamily / onAddPerson only dismiss here — tree navigation lives in the
-                // Tree tab, so the People tab can't re-centre it. See docs/known-gaps.md #4.
+                // "See their family" now dismisses the sheet and hands the person up
+                // to MainTabView, which switches to the Tree tab and re-centres it.
+                // (onAddPerson still just dismisses — adding from the list is separate.)
                 PersonSheetView(
                     person: person,
                     allPeople: treePeople,
@@ -77,7 +81,10 @@ struct PeopleListView: View {
                     mutationService: TreeMutationService(),
                     isFocal: person.id == ownerPersonId,
                     canDelete: person.id != ownerPersonId,
-                    onSeeFamily: { _ in selectedPerson = nil },
+                    onSeeFamily: { personId in
+                        selectedPerson = nil
+                        onSeeFamily(personId)
+                    },
                     onAddPerson: { _ in selectedPerson = nil }
                 )
             }
@@ -108,5 +115,5 @@ struct PeopleListView: View {
 }
 
 #Preview {
-    PeopleListView(ownerPersonId: .placeholder)
+    PeopleListView(ownerPersonId: .placeholder) { _ in }
 }

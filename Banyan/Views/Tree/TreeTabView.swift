@@ -7,6 +7,9 @@ import SwiftData
 
 struct TreeTabView: View {
     let ownerPersonId: UUID
+    /// A person to re-centre on, set by the People tab's "See their family". Consumed
+    /// (reset to nil) once focused, so the same request doesn't re-fire.
+    @Binding var focusRequest: UUID?
 
     @AppStorage("treeId") private var treeIdString: String = ""
     @AppStorage("ownerPersonId") private var ownerPersonIdString: String = ""
@@ -32,8 +35,9 @@ struct TreeTabView: View {
     /// dismissed — presenting the add sheet in the same tick drops the presentation.
     @State private var pendingAddContext: AddPersonContext? = nil
 
-    init(ownerPersonId: UUID) {
+    init(ownerPersonId: UUID, focusRequest: Binding<UUID?>) {
         self.ownerPersonId = ownerPersonId
+        self._focusRequest = focusRequest
         let graphService = GraphService()
         self.graphService = graphService
         _treeViewModel = State(initialValue: TreeViewModel(graphService: graphService))
@@ -127,6 +131,12 @@ struct TreeTabView: View {
                 } else {
                     refreshSnapshot()
                 }
+            }
+            .onChange(of: focusRequest) { _, newValue in
+                // The People tab asked to centre on someone — focus and consume it.
+                guard let personId = newValue else { return }
+                treeViewModel.focus(on: personId)
+                focusRequest = nil
             }
             .sheet(item: $selectedPerson, onDismiss: handlePersonSheetDismiss) { person in
                 PersonSheetView(
