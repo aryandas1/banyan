@@ -101,6 +101,12 @@ struct AddPersonReviewStepView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
+            if vm.sex != .unknown {
+                Text(vm.genderDescription)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+
             Text(vm.birthDescription)
                 .font(.body)
                 .foregroundStyle(.secondary)

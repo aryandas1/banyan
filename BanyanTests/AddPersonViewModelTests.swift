@@ -123,6 +123,79 @@ struct AddPersonViewModelTests {
         #expect(spy.scheduledTreeIds == [treeId])
     }
 
+    // MARK: - Gender + optional month/day
+
+    @Test func saveAppliesSexToTheCreatedPerson() async throws {
+        // Given an add-child form with a chosen gender
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let anchor = builder.makePerson(firstName: "Anchor", treeId: treeId)
+        let vm = AddPersonViewModel(
+            context: .child(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.firstName = "Kid"
+        vm.sex = .female
+
+        // When saved
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
+
+        // Then the created person carries that sex (drives their relationship label)
+        let kid = GraphService().children(of: anchor).first { $0.firstName == "Kid" }
+        #expect(kid?.sex == .female)
+    }
+
+    @Test func birthDateIncludesMonthAndDayWhenProvided() throws {
+        // Given a full year/month/day entered
+        let builder = try TestTreeBuilder()
+        let anchor = builder.makePerson(firstName: "Aryan")
+        let vm = AddPersonViewModel(
+            context: .child(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.birthYearText = "1945"
+        vm.birthMonth = 3
+        vm.birthDayText = "12"
+
+        // Then all three components are carried
+        #expect(vm.birthDate?.year == 1945)
+        #expect(vm.birthDate?.month == 3)
+        #expect(vm.birthDate?.day == 12)
+    }
+
+    @Test func birthDateDropsDayWhenNoMonth() throws {
+        // Given a day typed but no month (a day alone is meaningless)
+        let builder = try TestTreeBuilder()
+        let anchor = builder.makePerson(firstName: "Aryan")
+        let vm = AddPersonViewModel(
+            context: .child(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.birthYearText = "1945"
+        vm.birthMonth = nil
+        vm.birthDayText = "12"
+
+        // Then only the year survives
+        #expect(vm.birthDate?.year == 1945)
+        #expect(vm.birthDate?.month == nil)
+        #expect(vm.birthDate?.day == nil)
+    }
+
+    @Test func genderDescriptionReflectsSex() throws {
+        let builder = try TestTreeBuilder()
+        let anchor = builder.makePerson(firstName: "Aryan")
+        let vm = AddPersonViewModel(
+            context: .child(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.sex = .male
+        #expect(vm.genderDescription == "Male")
+        vm.sex = .female
+        #expect(vm.genderDescription == "Female")
+        vm.sex = .unknown
+        #expect(vm.genderDescription == "Gender not set")
+    }
+
     // MARK: - Co-parent question (adding a second parent via "add partner")
 
     @Test func coParentQuestionAppliesWhenAddingPartnerToLoneParent() throws {

@@ -18,7 +18,11 @@ final class AddPersonViewModel {
 
     var firstName: String = ""
     var lastName: String = ""
+    var sex: Sex = .unknown
     var birthYearText: String = ""
+    /// Optional birth month (1–12); nil when unknown. A day is only kept if a month is set.
+    var birthMonth: Int? = nil
+    var birthDayText: String = ""
     var isDeceased: Bool = false
     var deathYearText: String = ""
     private(set) var isSaving: Bool = false
@@ -36,10 +40,14 @@ final class AddPersonViewModel {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The birth year parsed into a year-only PartialDate, or nil when blank/invalid.
+    /// The birth date parsed from the year (required) plus the optional month and
+    /// day, or nil when the year is blank/invalid. Month/day stay unknown unless
+    /// entered; a day is only kept alongside a month (matching PartialDate).
     var birthDate: PartialDate? {
         guard let year = Int(birthYearText), year > 0 else { return nil }
-        return PartialDate(year: year)
+        let month = birthMonth.flatMap { (1...12).contains($0) ? $0 : nil }
+        let day = month == nil ? nil : Int(birthDayText).flatMap { (1...31).contains($0) ? $0 : nil }
+        return PartialDate(year: year, month: month, day: day)
     }
 
     /// The death year parsed into a year-only PartialDate — only when deceased.
@@ -56,10 +64,19 @@ final class AddPersonViewModel {
             .joined(separator: " ")
     }
 
-    /// The birth line on the review card.
+    /// The birth line on the review card — shows whatever of year/month/day is known.
     var birthDescription: String {
-        guard let year = birthDate?.year else { return "Birth year unknown" }
-        return "Born \(year)"
+        guard let birthDate else { return "Birth date unknown" }
+        return "Born \(birthDate.displayString)"
+    }
+
+    /// The gender line on the review card.
+    var genderDescription: String {
+        switch sex {
+        case .male:    return "Male"
+        case .female:  return "Female"
+        case .unknown: return "Gender not set"
+        }
     }
 
     /// The living/deceased line on the review card.
@@ -118,13 +135,13 @@ final class AddPersonViewModel {
         switch context {
         case .parent:
             try mutationService.addParent(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
         case .partner:
             try mutationService.addPartner(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate,
                 // Only co-parent when the question actually applied AND the user said yes.
@@ -133,13 +150,13 @@ final class AddPersonViewModel {
             )
         case .child:
             try mutationService.addChild(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
         case .sibling:
             try mutationService.addSibling(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
