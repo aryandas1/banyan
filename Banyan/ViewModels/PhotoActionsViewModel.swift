@@ -73,6 +73,20 @@ final class PhotoActionsViewModel {
         schedule(ops)
     }
 
+    /// Applies the avatar framing to `photo` and saves, re-clamping against the
+    /// photo's `aspectRatio` (width / height) so a stored crop always covers the
+    /// circle. Local-only for the pilot: the crop isn't on `PersonPhotoDTO`, so
+    /// there's no remote re-sync here (viewers see the uncropped avatar —
+    /// development-plan §0.9 follow-up). Best-effort `try?` to match the other
+    /// writers on this VM.
+    func setCrop(_ crop: AvatarCrop, aspectRatio: Double, on photo: PersonPhoto, in context: ModelContext) {
+        let clamped = crop.clamped(aspectRatio: aspectRatio)
+        photo.cropScale = clamped.scale
+        photo.cropOffsetX = clamped.offsetX
+        photo.cropOffsetY = clamped.offsetY
+        try? context.save()
+    }
+
     /// Applies edited caption / date / place to `photo`, saves, and re-upserts the
     /// row (uploaded photos only). Mirrors the parsing AddPhotoViewModel uses.
     func updateMetadata(

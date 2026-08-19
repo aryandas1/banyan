@@ -43,9 +43,11 @@ struct PersonRowView: View {
     private var avatar: some View {
         Group {
             if let photo {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFill()
+                CroppedCircleImage(
+                    uiImage: photo,
+                    crop: AvatarCrop(from: person.profilePhoto),
+                    diameter: 44
+                )
             } else {
                 BanyanTheme.avatarColor(for: person.id)
                     .overlay(
@@ -54,10 +56,10 @@ struct PersonRowView: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.white)
                     )
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
             }
         }
-        .frame(width: 44, height: 44)
-        .clipShape(Circle())
     }
 
     /// Loads the stored profile photo off the main thread; keeps the initials placeholder

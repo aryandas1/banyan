@@ -76,11 +76,11 @@ struct PersonNodeView: View {
             .frame(width: NodeMetrics.avatarSize, height: NodeMetrics.avatarSize)
             .overlay {
                 if let photo {
-                    Image(uiImage: photo)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: NodeMetrics.avatarSize, height: NodeMetrics.avatarSize)
-                        .clipShape(Circle())
+                    CroppedCircleImage(
+                        uiImage: photo,
+                        crop: AvatarCrop(from: person.profilePhoto),
+                        diameter: NodeMetrics.avatarSize
+                    )
                 } else {
                     Text(person.initials)
                         .font(.title3)

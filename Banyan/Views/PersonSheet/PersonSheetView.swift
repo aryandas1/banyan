@@ -156,10 +156,11 @@ struct PersonSheetView: View {
                 .frame(width: 96, height: 96)
                 .overlay {
                     if let image = sheetVM.profileImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .clipShape(Circle())
+                        CroppedCircleImage(
+                            uiImage: image,
+                            crop: AvatarCrop(from: person.profilePhoto),
+                            diameter: 96
+                        )
                     } else {
                         Text(person.initials)
                             .font(.title)

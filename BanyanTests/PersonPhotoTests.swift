@@ -33,6 +33,14 @@ struct PersonPhotoTests {
         // month 13 → monthSymbols[safe: 12] is nil → falls back to the year string.
         #expect(makePhoto(year: 1967, month: 13).takenDateDisplay == "1967")
     }
+
+    @Test func cropDefaultsToNoCrop() {
+        // A photo added without a crop fills the circle: scale 1, no offset.
+        let photo = PersonPhoto(treeId: UUID(), personId: UUID(), filename: "x.jpg")
+        #expect(photo.cropScale == 1)
+        #expect(photo.cropOffsetX == 0)
+        #expect(photo.cropOffsetY == 0)
+    }
 }
 
 @MainActor
