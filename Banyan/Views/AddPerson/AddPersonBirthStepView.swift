@@ -41,8 +41,8 @@ struct AddPersonBirthStepView: View {
             TextField("Year, e.g. 1945", text: $vm.birthYearText)
                 .font(.title2)
                 .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
                 .focused($yearFieldFocused)
+                .banyanTextInput(focused: yearFieldFocused)
 
             // Month + Day — wheel pickers (the standard iOS pattern for short lists).
             HStack(spacing: 0) {

@@ -8,6 +8,7 @@ struct AddPersonNameStepView: View {
     let onContinue: () -> Void
 
     @FocusState private var isFirstNameFocused: Bool
+    @FocusState private var isLastNameFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -22,13 +23,14 @@ struct AddPersonNameStepView: View {
             TextField("First name", text: $vm.firstName)
                 .font(.title3)
                 .textContentType(.givenName)
-                .textFieldStyle(.roundedBorder)
                 .focused($isFirstNameFocused)
+                .banyanTextInput(focused: isFirstNameFocused)
 
             TextField("Last name (optional)", text: $vm.lastName)
                 .font(.title3)
                 .textContentType(.familyName)
-                .textFieldStyle(.roundedBorder)
+                .focused($isLastNameFocused)
+                .banyanTextInput(focused: isLastNameFocused)
 
             Spacer()
 
