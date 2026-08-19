@@ -35,6 +35,9 @@ targets:
     info:
       path: Banyan/Info.plist
       properties:
+        # The app uses only standard HTTPS (Supabase) — export-exempt encryption.
+        # Declaring this skips the export-compliance prompt on every TestFlight upload.
+        ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIApplicationSupportsIndirectInputEvents: true
@@ -50,10 +53,19 @@ targets:
           - CFBundleURLName: com.aryandas.Banyan.invite
             CFBundleURLSchemes:
               - banyan
+    # Sign in with Apple. Declared here (not via Xcode's Signing & Capabilities UI)
+    # so it survives `xcodegen generate` — the .pbxproj is generated, not tracked.
+    # XcodeGen writes Banyan/Banyan.entitlements and wires CODE_SIGN_ENTITLEMENTS.
+    entitlements:
+      path: Banyan/Banyan.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.aryandas.Banyan
+        PRODUCT_BUNDLE_IDENTIFIER: com.aryandas.banyan
         PRODUCT_NAME: Banyan
+        DEVELOPMENT_TEAM: 43WWMP623S
         GENERATE_INFOPLIST_FILE: NO
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "1.0"

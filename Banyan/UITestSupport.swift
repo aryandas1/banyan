@@ -187,7 +187,7 @@ enum UITestSupport {
 /// signed-in state deterministically.
 final class UITestAuthService: AuthServiceProtocol {
     let userId: UUID? = UUID(uuidString: "33333333-3333-3333-3333-333333333333")
-    func signIn() async throws -> UUID { userId ?? UUID() }
+    func restoreSession() async throws -> UUID { userId ?? UUID() }
     func signOut() async throws {}
 }
 

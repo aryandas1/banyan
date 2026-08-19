@@ -13,8 +13,8 @@ struct AuthStateManagerTests {
 
     // MARK: - Test double
 
-    /// Configurable stand-in for AuthServiceProtocol. `signIn` either returns a
-    /// fixed id or throws, per the test's setup.
+    /// Configurable stand-in for AuthServiceProtocol. Both the restore path and the
+    /// Apple-completion path resolve to `signInResult`, per the test's setup.
     final class MockAuthService: AuthServiceProtocol {
         var userId: UUID?
         var signInResult: Result<UUID, Error>
@@ -24,7 +24,13 @@ struct AuthStateManagerTests {
             self.signInResult = signInResult
         }
 
-        func signIn() async throws -> UUID {
+        func restoreSession() async throws -> UUID {
+            let id = try signInResult.get()
+            userId = id
+            return id
+        }
+
+        func completeSignIn(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async throws -> UUID {
             let id = try signInResult.get()
             userId = id
             return id
@@ -78,28 +84,30 @@ struct AuthStateManagerTests {
         #expect(manager.userId == nil)
     }
 
-    // MARK: - signIn()
+    // MARK: - completeAppleSignIn()
 
-    @Test func signInSetsSignedInStateOnSuccess() async {
+    @Test func completeAppleSignInSetsSignedInStateOnSuccess() async {
         // Given a service that returns a user id
         let id = UUID()
         let manager = AuthStateManager(authService: MockAuthService(signInResult: .success(id)))
 
-        // When signing in from the button
-        await manager.signIn()
+        // When completing an Apple sign-in from the button
+        let ok = await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
 
-        // Then the state carries that id
+        // Then it reports success and the state carries that id
+        #expect(ok)
         #expect(isSignedIn(manager.state, as: id))
     }
 
-    @Test func signInFallsBackToSignedOutOnFailure() async {
+    @Test func completeAppleSignInFallsBackToSignedOutOnFailure() async {
         // Given a service that fails
         let manager = AuthStateManager(authService: MockAuthService(signInResult: .failure(MockError())))
 
-        // When signing in
-        await manager.signIn()
+        // When completing an Apple sign-in
+        let ok = await manager.completeAppleSignIn(idToken: "token", rawNonce: "nonce", fullName: nil)
 
-        // Then the state is signed out
+        // Then it reports failure and the state is signed out
+        #expect(!ok)
         #expect(isSignedOut(manager.state))
     }
 

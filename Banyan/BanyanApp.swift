@@ -115,9 +115,10 @@ struct BanyanApp: App {
         // CLAUDE.md).
         let client = SupabaseClientProvider.makeClient()
 
-        // Use AnonymousAuthService during development. Switch to AppleAuthService
-        // when Apple Developer credentials are ready.
-        let auth = AuthStateManager(authService: AnonymousAuthService(client: client))
+        // Production auth: Sign in with Apple (Supabase-verified). AnonymousAuthService
+        // remains in the codebase for quick simulator dev if ever needed — swap it in
+        // here to bypass the Apple sheet.
+        let auth = AuthStateManager(authService: AppleAuthService(client: client))
         _authState = State(initialValue: auth)
 
         _syncService = State(initialValue: SyncService(
