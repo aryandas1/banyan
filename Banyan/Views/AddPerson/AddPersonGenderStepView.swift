@@ -11,15 +11,9 @@ struct AddPersonGenderStepView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What is their gender?")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-
-                Text("This sets how they appear in the tree — like mother, son, or aunt.")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
+            Text("What is their gender?")
+                .font(.largeTitle)
+                .fontWeight(.bold)
 
             HStack(spacing: 16) {
                 genderButton(.male, "Male")

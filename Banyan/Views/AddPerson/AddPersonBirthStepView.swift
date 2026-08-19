@@ -27,15 +27,9 @@ struct AddPersonBirthStepView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("When were they born?")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-
-                Text("The year is enough — add a month and day only if you know them.")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
+            Text("When were they born?")
+                .font(.largeTitle)
+                .fontWeight(.bold)
 
             // Year — text field (a 4-digit number is faster to type than to scroll).
             TextField("Year, e.g. 1945", text: $vm.birthYearText)
