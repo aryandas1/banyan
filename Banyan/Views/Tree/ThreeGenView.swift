@@ -19,9 +19,6 @@ struct ThreeGenView: View {
     /// Called when a placeholder node is tapped, with the relationship to create.
     let onAddPerson: (AddPersonContext) -> Void
 
-    /// At most this many sibling nodes render; beyond it, two nodes plus a "+N more" pill.
-    private let maxVisibleSiblings = 3
-
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
@@ -118,41 +115,26 @@ struct ThreeGenView: View {
 
     @ViewBuilder
     private var siblingNodes: some View {
-        let siblings = threeGenVM.siblings
-        let visible = siblings.count > maxVisibleSiblings ? Array(siblings.prefix(2)) : siblings
-
-        ForEach(visible) { sibling in
+        // Every sibling renders — the middle row scrolls horizontally, so large
+        // families are all reachable rather than hidden behind a "+N more" pill.
+        ForEach(threeGenVM.siblings) { sibling in
             node(for: sibling)
-        }
-
-        if siblings.count > maxVisibleSiblings {
-            Text("+\(siblings.count - 2) more")
-                .font(.caption)
-                .foregroundStyle(BanyanTheme.Color.textSecondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(BanyanTheme.Color.separator))
         }
     }
 
     @ViewBuilder
     private var partnerSlot: some View {
-        if let partner = threeGenVM.focalPartners.first {
-            node(for: partner)
-                .overlay(alignment: .topTrailing) {
-                    if threeGenVM.focalPartners.count > 1 {
-                        Text("+\(threeGenVM.focalPartners.count - 1)")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(BanyanTheme.Color.textSecondary)
-                            .padding(5)
-                            .background(Circle().fill(BanyanTheme.Color.chrome))
-                            .offset(x: 8, y: -8)
-                    }
+        if threeGenVM.focalPartners.isEmpty {
+            if !isReadOnly {
+                PlaceholderNodeView(label: "Add partner") {
+                    onAddPerson(.partner(of: threeGenVM.focalPerson))
                 }
-        } else if !isReadOnly {
-            PlaceholderNodeView(label: "Add partner") {
-                onAddPerson(.partner(of: threeGenVM.focalPerson))
+            }
+        } else {
+            // All partners render (scrollable) instead of one node + a "+N" badge,
+            // so remarriages / multiple partners are each visible and tappable.
+            ForEach(threeGenVM.focalPartners) { partner in
+                node(for: partner)
             }
         }
     }
