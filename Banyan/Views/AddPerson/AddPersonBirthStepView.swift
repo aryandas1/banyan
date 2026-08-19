@@ -1,13 +1,20 @@
 // AddPersonBirthStepView.swift
-// Add-person flow: birth date. The year is the primary field and enough on its
-// own (genealogy often knows only a year); month and day are optional, and a day
-// is only entered once a month is chosen. "I don't know" skips the whole thing.
+// Add-person flow: birth date. Year is the primary field and enough on its own
+// (genealogy often knows only a year); month and day are optional wheel pickers,
+// and a day is only meaningful once a month is chosen. "I don't know" skips the
+// whole thing; "Continue" carries whatever was entered forward.
 
 import SwiftUI
 
 struct AddPersonBirthStepView: View {
     @Bindable var vm: AddPersonViewModel
     let onContinue: () -> Void
+
+    // 0 = not selected; 1–12 = month; 1–31 = day. Local state kept in sync with the
+    // ViewModel via .onChange so the VM's interface (birthMonth: Int?, birthDayText:
+    // String) is unchanged.
+    @State private var selectedMonth: Int = 0
+    @State private var selectedDay: Int = 0
 
     /// Full month names, fixed (display must not shift with the runtime locale).
     private static let monthNames = [
@@ -16,49 +23,83 @@ struct AddPersonBirthStepView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("When were they born?")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("When were they born?")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
 
-            Text("The year is enough — add a month and day only if you know them.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+                Text("The year is enough — add a month and day only if you know them.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
 
+            // Year — text field (a 4-digit number is faster to type than to scroll).
             TextField("Year, e.g. 1945", text: $vm.birthYearText)
                 .font(.title2)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
 
-            HStack(spacing: 12) {
-                Picker("Month", selection: $vm.birthMonth) {
-                    Text("Month").tag(Int?.none)
-                    ForEach(1...12, id: \.self) { month in
-                        Text(Self.monthNames[month - 1]).tag(Int?.some(month))
+            // Month + Day — wheel pickers (the standard iOS pattern for short lists).
+            HStack(spacing: 0) {
+                VStack(spacing: 4) {
+                    Text("Month")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Month", selection: $selectedMonth) {
+                        Text("—").tag(0)
+                        ForEach(1...12, id: \.self) { month in
+                            Text(Self.monthNames[month - 1]).tag(month)
+                        }
                     }
+                    .pickerStyle(.wheel)
+                    .frame(height: 140)
+                    .clipped()
                 }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity)
 
-                // A day is only meaningful alongside a month.
-                TextField("Day", text: $vm.birthDayText)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 90)
-                    .disabled(vm.birthMonth == nil)
-                    .opacity(vm.birthMonth == nil ? 0.4 : 1)
+                Divider().frame(height: 140)
+
+                // A day is only meaningful once a month is chosen.
+                VStack(spacing: 4) {
+                    Text("Day")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Day", selection: $selectedDay) {
+                        Text("—").tag(0)
+                        ForEach(1...31, id: \.self) { day in
+                            Text("\(day)").tag(day)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 140)
+                    .clipped()
+                    .disabled(selectedMonth == 0)
+                    .opacity(selectedMonth == 0 ? 0.35 : 1)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .font(.title3)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Button("I don't know") {
+            Button {
                 vm.birthYearText = ""
                 vm.birthMonth = nil
                 vm.birthDayText = ""
+                selectedMonth = 0
+                selectedDay = 0
                 onContinue()
+            } label: {
+                Text("I don't know")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(.systemGray3), lineWidth: 1.5)
+                    )
             }
-            .font(.body)
-            .foregroundStyle(.secondary)
-            .frame(minWidth: 44, minHeight: 44)
+            .buttonStyle(.plain)
 
             Spacer()
 
@@ -72,5 +113,21 @@ struct AddPersonBirthStepView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(24)
+        .onAppear {
+            // Restore the pickers if the user navigated back to this step.
+            selectedMonth = vm.birthMonth ?? 0
+            selectedDay = Int(vm.birthDayText) ?? 0
+        }
+        .onChange(of: selectedMonth) { _, newMonth in
+            vm.birthMonth = newMonth == 0 ? nil : newMonth
+            // Clearing the month clears the day too — a day alone is meaningless.
+            if newMonth == 0 {
+                selectedDay = 0
+                vm.birthDayText = ""
+            }
+        }
+        .onChange(of: selectedDay) { _, newDay in
+            vm.birthDayText = newDay == 0 ? "" : "\(newDay)"
+        }
     }
 }

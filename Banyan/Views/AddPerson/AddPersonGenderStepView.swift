@@ -1,7 +1,7 @@
 // AddPersonGenderStepView.swift
-// Add-person flow: gender (Male / Female / Skip). Sets `sex`, which drives the
+// Add-person flow: gender (Male / Female / Not sure). Sets `sex`, which drives the
 // relationship labels (mother/father, son/daughter, aunt/uncle). Tapping an option
-// advances immediately; Skip leaves it unknown — gender is never forced.
+// advances immediately; "Not sure" leaves sex as .unknown — gender is never forced.
 
 import SwiftUI
 
@@ -10,14 +10,16 @@ struct AddPersonGenderStepView: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("What is their gender?")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("What is their gender?")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
 
-            Text("This sets how they appear in the tree — like mother, son, or aunt.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+                Text("This sets how they appear in the tree — like mother, son, or aunt.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 16) {
                 genderButton(.male, "Male")
@@ -25,35 +27,46 @@ struct AddPersonGenderStepView: View {
             }
             .padding(.top, 8)
 
-            Button("Skip") {
+            Button {
                 vm.sex = .unknown
                 onContinue()
+            } label: {
+                Text("Not sure")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(.systemGray3), lineWidth: 1.5)
+                    )
             }
-            .font(.body)
-            .foregroundStyle(.secondary)
-            .frame(minWidth: 44, minHeight: 44)
+            .buttonStyle(.plain)
 
             Spacer()
         }
         .padding(24)
     }
 
-    /// A large tappable gender option. Highlighted when it's the current choice
-    /// (visible if the user navigates back), and advances the flow when tapped.
+    /// Filled when selected, outlined when not. Tapping always advances the flow.
     private func genderButton(_ sex: Sex, _ label: String) -> some View {
-        Button {
+        let isSelected = vm.sex == sex
+        return Button {
             vm.sex = sex
             onContinue()
         } label: {
-            HStack(spacing: 6) {
-                if vm.sex == sex {
-                    Image(systemName: "checkmark")
-                }
-                Text(label)
-            }
-            .font(.title3)
-            .frame(maxWidth: .infinity, minHeight: 72)
+            Text(label)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : Color.accentColor)
+                .frame(maxWidth: .infinity, minHeight: 72)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(isSelected ? Color.accentColor : Color(.systemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.accentColor, lineWidth: 2)
+                )
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.plain)
     }
 }
