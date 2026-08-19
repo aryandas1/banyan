@@ -15,6 +15,9 @@ struct AddPersonBirthStepView: View {
     // String) is unchanged.
     @State private var selectedMonth: Int = 0
     @State private var selectedDay: Int = 0
+    /// The numberPad year field has no return key to dismiss itself, so a keyboard
+    /// toolbar "Done" drives this — otherwise the keyboard can sit over Continue.
+    @FocusState private var yearFieldFocused: Bool
 
     /// Full month names, fixed (display must not shift with the runtime locale).
     private static let monthNames = [
@@ -39,6 +42,7 @@ struct AddPersonBirthStepView: View {
                 .font(.title2)
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
+                .focused($yearFieldFocused)
 
             // Month + Day — wheel pickers (the standard iOS pattern for short lists).
             HStack(spacing: 0) {
@@ -113,12 +117,21 @@ struct AddPersonBirthStepView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding(24)
+        .toolbar {
+            // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { yearFieldFocused = false }
+            }
+        }
         .onAppear {
             // Restore the pickers if the user navigated back to this step.
             selectedMonth = vm.birthMonth ?? 0
             selectedDay = Int(vm.birthDayText) ?? 0
         }
         .onChange(of: selectedMonth) { _, newMonth in
+            // Reaching for a picker means they're done typing the year — drop the keyboard.
+            yearFieldFocused = false
             vm.birthMonth = newMonth == 0 ? nil : newMonth
             // Clearing the month clears the day too — a day alone is meaningless.
             if newMonth == 0 {
