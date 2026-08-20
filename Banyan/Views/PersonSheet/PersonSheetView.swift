@@ -197,13 +197,8 @@ struct PersonSheetView: View {
                     dismiss()
                 } label: {
                     Text("See their family")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
-                        .background(BanyanTheme.Color.primary)
-                        .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PrimaryFilledButtonStyle())
             }
 
             // All add/link entry points are hidden for a viewer.
@@ -220,14 +215,8 @@ struct PersonSheetView: View {
     private func addButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(BanyanTheme.Color.primary)
-                .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
-                .background(BanyanTheme.Color.primaryTint)
-                .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(TintFilledButtonStyle())
     }
 
     // MARK: - Family

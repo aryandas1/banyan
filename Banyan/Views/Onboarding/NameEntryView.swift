@@ -73,17 +73,8 @@ struct NameEntryView: View {
                 continueTapped()
             } label: {
                 Text("Continue")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
-                    .background(
-                        vm.canContinue && !vm.isSaving
-                            ? BanyanTheme.Color.primary
-                            : BanyanTheme.Color.textTertiary
-                    )
-                    .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinue || vm.isSaving)
         }
         .padding()

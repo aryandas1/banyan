@@ -42,7 +42,7 @@ struct PlaceholderNodeView: View {
             .padding(.horizontal, 4)
             .frame(width: NodeMetrics.width, height: NodeMetrics.height)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DimOnPressButtonStyle())
         .accessibilityLabel(label)
         .onAppear {
             guard !reduceMotion else { return }
