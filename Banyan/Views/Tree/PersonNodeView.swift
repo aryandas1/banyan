@@ -8,7 +8,10 @@ import SwiftUI
 /// computes edge positions from these, so they must never vary per node.
 enum NodeMetrics {
     static let width: CGFloat = 88
-    static let height: CGFloat = 112
+    // Headroom for a name wrapping to two lines (finding #9) — long names and
+    // larger Dynamic Type sizes wrap instead of truncating mid-name. The connector
+    // layer reads this same constant, so taller nodes still meet their edges.
+    static let height: CGFloat = 128
     static let cornerRadius: CGFloat = BanyanTheme.Radius.node
     /// Diameter of the avatar circle inside every node.
     static let avatarSize: CGFloat = 62
@@ -33,7 +36,9 @@ struct PersonNodeView: View {
                 Text(person.firstName)
                     .font(.footnote)
                     .fontWeight(.semibold)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .multilineTextAlignment(.center)
                     .truncationMode(.tail)
                     .foregroundStyle(isFocal ? BanyanTheme.Color.primary : BanyanTheme.Color.textPrimary)
 

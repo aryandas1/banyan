@@ -49,6 +49,9 @@ struct ThreeGenView: View {
                 }
             }
         }
+        // Deliberately titleless (finding #8): the breadcrumb below the bar names
+        // the focal person, and Back / My tree fill the bar — a centre title would
+        // just duplicate the breadcrumb and crowd an already-busy inline bar.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -66,7 +69,7 @@ struct ThreeGenView: View {
         HStack(spacing: 24) {
             if threeGenVM.parents.isEmpty {
                 if !isReadOnly {
-                    PlaceholderNodeView(label: "Add parent") {
+                    PlaceholderNodeView(label: "Add parent", pulseDelay: 0) {
                         onAddPerson(.parent(of: threeGenVM.focalPerson))
                     }
                 }
@@ -97,7 +100,7 @@ struct ThreeGenView: View {
             HStack(spacing: 16) {
                 if threeGenVM.children.isEmpty {
                     if !isReadOnly {
-                        PlaceholderNodeView(label: "Add child") {
+                        PlaceholderNodeView(label: "Add child", pulseDelay: 1.4) {
                             onAddPerson(.child(of: threeGenVM.focalPerson))
                         }
                     }
@@ -126,7 +129,7 @@ struct ThreeGenView: View {
     private var partnerSlot: some View {
         if threeGenVM.focalPartners.isEmpty {
             if !isReadOnly {
-                PlaceholderNodeView(label: "Add partner") {
+                PlaceholderNodeView(label: "Add partner", pulseDelay: 0.7) {
                     onAddPerson(.partner(of: threeGenVM.focalPerson))
                 }
             }
