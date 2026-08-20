@@ -19,7 +19,7 @@ struct ShareView: View {
                     ProgressView()
                 case .error(let message):
                     Text(message)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(BanyanTheme.Color.warning)
                         .padding()
                 case .loaded(let viewers, let pending):
                     loadedBody(viewers: viewers, pending: pending)

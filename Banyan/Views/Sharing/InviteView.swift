@@ -39,7 +39,7 @@ struct InviteView: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(BanyanTheme.Color.warning)
                         .font(.footnote)
                         .padding(.horizontal)
                 }

@@ -29,7 +29,7 @@ struct SignInView: View {
             VStack(spacing: 12) {
                 Image(systemName: "tree.fill")
                     .font(.system(size: iconSize))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(BanyanTheme.Color.primary)
 
                 Text("Banyan")
                     .font(.largeTitle.bold())

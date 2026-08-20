@@ -39,7 +39,7 @@ struct InviteAcceptanceView: View {
         case .success:
             Image(systemName: "checkmark.circle.fill")
                 .font(.largeTitle)
-                .foregroundStyle(.green)
+                .foregroundStyle(BanyanTheme.Color.positive)
             Text("You're in!")
                 .font(.title2)
                 .fontWeight(.bold)
@@ -58,7 +58,7 @@ struct InviteAcceptanceView: View {
         case .failure(let message):
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.largeTitle)
-                .foregroundStyle(.red)
+                .foregroundStyle(BanyanTheme.Color.warning)
             Text("Invite not valid")
                 .font(.title2)
                 .fontWeight(.bold)
