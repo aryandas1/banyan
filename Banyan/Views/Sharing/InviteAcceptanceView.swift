@@ -18,6 +18,8 @@ struct InviteAcceptanceView: View {
             Spacer()
         }
         .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .task { await viewModel.accept(token: token, context: context) }
     }
 
@@ -51,9 +53,8 @@ struct InviteAcceptanceView: View {
                 dismiss()
             } label: {
                 Text("View tree")
-                    .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
 
         case .failure(let message):
             Image(systemName: "exclamationmark.circle.fill")

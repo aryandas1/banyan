@@ -22,6 +22,8 @@ struct LinkPersonRoleView: View {
             Spacer()
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
     }
 
     /// One full-width card; tapping it advances to the review step.
@@ -44,7 +46,11 @@ struct LinkPersonRoleView: View {
             .frame(maxWidth: .infinity, minHeight: 56)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
+                    .fill(BanyanTheme.Color.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(BanyanTheme.Color.border, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

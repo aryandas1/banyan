@@ -35,12 +35,12 @@ struct AddPersonStatusStepView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
     }
 
     /// One full-width selectable card with a trailing checkmark when selected.
@@ -62,11 +62,11 @@ struct AddPersonStatusStepView: View {
             .frame(maxWidth: .infinity, minHeight: 56)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.accentColor.opacity(0.1) : Color(.systemGray6))
+                    .fill(isSelected ? BanyanTheme.Color.primaryTint : BanyanTheme.Color.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    .stroke(isSelected ? BanyanTheme.Color.primary : BanyanTheme.Color.border, lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)

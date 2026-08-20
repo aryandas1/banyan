@@ -32,15 +32,15 @@ struct PhotoGalleryView: View {
                     Button(action: onAddPhoto) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(Color(.systemGray6))
+                                .fill(BanyanTheme.Color.primaryTint)
                                 .frame(width: thumbSize, height: thumbSize)
                             VStack(spacing: 4) {
                                 Image(systemName: "plus")
                                     .font(.title2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(BanyanTheme.Color.primary)
                                 Text("Add photo")
                                     .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(BanyanTheme.Color.primary)
                             }
                         }
                     }
@@ -70,7 +70,7 @@ struct PhotoThumbView: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Color(.systemGray5)
+                    BanyanTheme.Color.border
                 }
             }
             .frame(width: size, height: size)

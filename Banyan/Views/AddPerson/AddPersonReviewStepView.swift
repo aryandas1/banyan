@@ -27,10 +27,8 @@ struct AddPersonReviewStepView: View {
                 onSave()
             } label: {
                 Text("Save")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(vm.isSaving)
 
             Button("Change something") {
@@ -41,6 +39,8 @@ struct AddPersonReviewStepView: View {
             .frame(maxWidth: .infinity, minHeight: 44)
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
     }
 
     /// Asks whether the new partner is also a parent of the anchor's existing
@@ -69,7 +69,11 @@ struct AddPersonReviewStepView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+                .fill(BanyanTheme.Color.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(BanyanTheme.Color.border, lineWidth: 1)
         )
     }
 
@@ -87,7 +91,7 @@ struct AddPersonReviewStepView: View {
                     .multilineTextAlignment(.leading)
                 Spacer()
             }
-            .foregroundStyle(isSelected ? Color.accentColor : .primary)
+            .foregroundStyle(isSelected ? BanyanTheme.Color.primary : .primary)
             .padding(.vertical, 8)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
@@ -123,7 +127,11 @@ struct AddPersonReviewStepView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+                .fill(BanyanTheme.Color.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(BanyanTheme.Color.border, lineWidth: 1)
         )
     }
 }

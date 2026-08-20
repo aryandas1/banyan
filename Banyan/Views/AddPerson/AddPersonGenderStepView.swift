@@ -31,7 +31,7 @@ struct AddPersonGenderStepView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(.systemGray3), lineWidth: 1.5)
+                            .stroke(BanyanTheme.Color.border, lineWidth: 1.5)
                     )
             }
             .buttonStyle(.plain)
@@ -39,6 +39,8 @@ struct AddPersonGenderStepView: View {
             Spacer()
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
     }
 
     /// Filled when selected, outlined when not. Tapping always advances the flow.
@@ -50,15 +52,15 @@ struct AddPersonGenderStepView: View {
         } label: {
             Text(label)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : Color.accentColor)
+                .foregroundStyle(isSelected ? .white : BanyanTheme.Color.primary)
                 .frame(maxWidth: .infinity, minHeight: 72)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(isSelected ? Color.accentColor : Color(.systemBackground))
+                        .fill(isSelected ? BanyanTheme.Color.primary : BanyanTheme.Color.surface)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.accentColor, lineWidth: 2)
+                        .stroke(BanyanTheme.Color.primary, lineWidth: 2)
                 )
         }
         .buttonStyle(.plain)

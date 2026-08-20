@@ -38,13 +38,13 @@ struct AddPersonNameStepView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinueFromName)
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .onAppear {
             isFirstNameFocused = true
         }

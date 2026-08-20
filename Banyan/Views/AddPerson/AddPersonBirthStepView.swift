@@ -77,8 +77,12 @@ struct AddPersonBirthStepView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(.systemGray6))
+            .background(BanyanTheme.Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(BanyanTheme.Color.border, lineWidth: 1)
+            )
 
             Button {
                 vm.birthYearText = ""
@@ -94,7 +98,7 @@ struct AddPersonBirthStepView: View {
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(.systemGray3), lineWidth: 1.5)
+                            .stroke(BanyanTheme.Color.border, lineWidth: 1.5)
                     )
             }
             .buttonStyle(.plain)
@@ -105,12 +109,12 @@ struct AddPersonBirthStepView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .toolbar {
             // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
             ToolbarItemGroup(placement: .keyboard) {
