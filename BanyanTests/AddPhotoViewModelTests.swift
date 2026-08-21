@@ -48,6 +48,43 @@ struct AddPhotoViewModelTests {
         cleanUp(person)
     }
 
+    @Test func savedProfilePhotoPersistsChosenCrop() async throws {
+        // given — a square test image (aspectRatio 1) and a framing well within bounds
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let vm = AddPhotoViewModel(setAsProfilePhoto: true)
+        vm.onImageSelected(image: makeImage(), data: nil)
+        let crop = AvatarCrop(scale: 2, offsetX: 0.1, offsetY: -0.1)
+
+        // when
+        try await vm.save(for: person, in: builder.context, photoSync: nil, crop: crop)
+
+        // then — the framing rides along onto the stored photo
+        let photo = try #require(person.photos.first)
+        #expect(photo.cropScale == 2)
+        #expect(photo.cropOffsetX == 0.1)
+        #expect(photo.cropOffsetY == -0.1)
+        cleanUp(person)
+    }
+
+    @Test func galleryAddDefaultsToIdentityCrop() async throws {
+        // given — no crop argument (the gallery-add path)
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let vm = AddPhotoViewModel()
+        vm.onImageSelected(image: makeImage(), data: nil)
+
+        // when
+        try await vm.save(for: person, in: builder.context, photoSync: nil)
+
+        // then — the photo fills the circle (identity framing)
+        let photo = try #require(person.photos.first)
+        #expect(photo.cropScale == 1)
+        #expect(photo.cropOffsetX == 0)
+        #expect(photo.cropOffsetY == 0)
+        cleanUp(person)
+    }
+
     @Test func secondNonProfilePhotoStaysSecondaryAndIncrementsSort() async throws {
         // given a person who already has a (profile) photo
         let builder = try TestTreeBuilder()

@@ -5,20 +5,30 @@
 
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct PersonSheetView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SyncService.self) private var syncService
+    @Environment(\.photoSyncService) private var photoSyncService
     /// When true (a viewer's shared tree), every edit control is hidden.
     @Environment(\.isReadOnly) private var isReadOnly
     @State private var sheetVM: PersonSheetViewModel
     @State private var showDeleteConfirmation = false
     @State private var showLinkSheet = false
     @State private var deleteError: Error?
-    @State private var showAddProfilePhoto = false
     @State private var showAddPhoto = false
     @State private var photoSelection: PhotoSelection?
+
+    // Profile-photo flow: tapping the avatar picks a photo, frames it in the
+    // Move & Scale step, then saves — or, when a photo already exists, offers a
+    // choice between picking a new one and re-framing the current one.
+    @State private var showProfilePhotoOptions = false
+    @State private var showProfilePicker = false
+    @State private var profilePickerItem: PhotosPickerItem?
+    @State private var pickedProfileImage: PickedProfileImage?
+    @State private var showAdjustFraming = false
 
     private let isFocal: Bool      // hide "See their family" when already focal
     private let canDelete: Bool    // false for the tree owner — see TreeTabView
@@ -115,14 +125,56 @@ struct PersonSheetView: View {
         // System drag handle instead of a hand-rolled capsule — the body is a
         // List, which no custom top element slots into cleanly.
         .presentationDragIndicator(.visible)
-        .sheet(isPresented: $showAddProfilePhoto, onDismiss: { sheetVM.refresh() }) {
-            AddPhotoView(person: person, preselectAsProfilePhoto: true)
-        }
         .sheet(isPresented: $showAddPhoto, onDismiss: { sheetVM.refresh() }) {
             AddPhotoView(person: person)
         }
         .sheet(item: $photoSelection, onDismiss: { sheetVM.refresh() }) { selection in
             PhotoDetailView(photos: selection.photos, currentIndex: selection.startIndex)
+        }
+        // When a profile photo already exists, the avatar offers a choice; with none,
+        // it goes straight to the picker.
+        .confirmationDialog("Profile photo", isPresented: $showProfilePhotoOptions, titleVisibility: .hidden) {
+            Button("Choose New Photo") { showProfilePicker = true }
+            Button("Adjust Framing") { showAdjustFraming = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showProfilePicker, selection: $profilePickerItem, matching: .images)
+        .onChange(of: profilePickerItem) { _, item in loadPickedProfileImage(item) }
+        // Freshly picked photo → frame it, then save as the profile photo.
+        .sheet(item: $pickedProfileImage, onDismiss: { sheetVM.refresh() }) { picked in
+            AvatarFramingView(image: picked.image, confirmLabel: "Use Photo") { crop, _ in
+                saveNewProfilePhoto(picked, crop: crop)
+            }
+        }
+        // Re-frame the existing profile photo without replacing it.
+        .sheet(isPresented: $showAdjustFraming, onDismiss: { sheetVM.refresh() }) {
+            if let profile = person.profilePhoto {
+                ProfilePhotoCropView(photo: profile)
+            }
+        }
+    }
+
+    /// Loads the picked item into memory and triggers the Move & Scale sheet. The
+    /// data is kept for EXIF date extraction + the background upload.
+    private func loadPickedProfileImage(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else { return }
+            pickedProfileImage = PickedProfileImage(image: image, data: data)
+            profilePickerItem = nil
+        }
+    }
+
+    /// Saves a freshly framed photo as this person's profile photo. Reuses
+    /// AddPhotoViewModel so the disk write, profile-flag promotion, and background
+    /// upload all match the gallery-add path; the chosen framing rides along.
+    private func saveNewProfilePhoto(_ picked: PickedProfileImage, crop: AvatarCrop) {
+        Task {
+            let vm = AddPhotoViewModel(setAsProfilePhoto: true)
+            vm.onImageSelected(image: picked.image, data: picked.data)
+            try? await vm.save(for: person, in: modelContext, photoSync: photoSyncService, crop: crop)
+            sheetVM.refresh()
         }
     }
 
@@ -145,11 +197,16 @@ struct PersonSheetView: View {
         }
     }
 
-    /// The 96pt avatar. Tapping opens the add-photo sheet to set a new profile
-    /// photo — disabled (and the camera badge hidden) for a read-only viewer.
+    /// The 96pt avatar. Tapping picks + frames a new profile photo (or, when one
+    /// exists, offers choose-new / re-frame) — disabled (and the camera badge
+    /// hidden) for a read-only viewer.
     private var avatarButton: some View {
         Button {
-            showAddProfilePhoto = true
+            if person.profilePhoto != nil {
+                showProfilePhotoOptions = true
+            } else {
+                showProfilePicker = true
+            }
         } label: {
             Circle()
                 .fill(BanyanTheme.avatarColor(for: person.id))
@@ -429,4 +486,13 @@ private struct PhotoSelection: Identifiable {
     let id: UUID
     let photos: [PersonPhoto]
     let startIndex: Int
+}
+
+/// A profile photo picked but not yet saved, carried into the Move & Scale sheet.
+/// A plain Identifiable value so `.sheet(item:)` presents on selection; `data` is
+/// kept for EXIF date extraction and the background upload.
+private struct PickedProfileImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+    let data: Data?
 }

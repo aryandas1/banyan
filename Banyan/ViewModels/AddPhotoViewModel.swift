@@ -78,7 +78,10 @@ final class AddPhotoViewModel {
     /// kicks a background upload via `photoSync` (nil in previews / when signed
     /// out); the local save has already succeeded, so an upload failure is
     /// non-fatal and the launch retry re-runs it.
-    func save(for person: Person, in context: ModelContext, photoSync: (any PhotoSyncServiceProtocol)?) async throws {
+    /// - Parameter crop: the avatar framing chosen in the Move & Scale step when
+    ///   this photo is being set as a profile photo. Defaults to `.identity` (the
+    ///   photo fills the circle) for the gallery-add path, which has no framing step.
+    func save(for person: Person, in context: ModelContext, photoSync: (any PhotoSyncServiceProtocol)?, crop: AvatarCrop = .identity) async throws {
         guard let image = selectedImage else { throw PhotoSaveError.noImageSelected }
         isSaving = true
         defer { isSaving = false }
@@ -111,6 +114,15 @@ final class AddPhotoViewModel {
             // collide with an existing sortOrder once any earlier photo is removed).
             sortOrder: (person.photos.map(\.sortOrder).max() ?? -1) + 1
         )
+
+        // Apply the chosen avatar framing, re-clamped against this image's aspect
+        // ratio so the crop always covers the circle. `.identity` for the gallery
+        // path leaves the photo filling the circle.
+        let aspectRatio = image.size.height > 0 ? Double(image.size.width / image.size.height) : 1
+        let framing = crop.clamped(aspectRatio: aspectRatio)
+        photo.cropScale = framing.scale
+        photo.cropOffsetX = framing.offsetX
+        photo.cropOffsetY = framing.offsetY
 
         // Insert before wiring the relationship (SwiftData insert-before-link rule).
         context.insert(photo)
