@@ -2,7 +2,7 @@
 // A small, calm cloud-sync indicator for the Tree tab, OWNER-ONLY (a viewer never
 // pushes, so this is only placed on the non-read-only path). It's a thin switch
 // over the pure `SyncStatus` derivation — all the wording/precedence/relative-time
-// logic is unit-tested there; this view only maps the status to icon + colour and
+// logic is unit-tested there; this view only maps the status to icon + color and
 // self-hides when there's nothing to report (`.idle`).
 
 import SwiftUI

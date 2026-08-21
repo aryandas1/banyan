@@ -288,7 +288,7 @@ struct RelationshipLabelTests {
 
     // MARK: - End-to-end via TreeMutationService (matches how the app builds relations)
 
-    @Test func uncleViaMutationServiceIsLabelled() throws {
+    @Test func uncleViaMutationServiceIsLabeled() throws {
         let builder = try TestTreeBuilder()
         let service = TreeMutationService()
         let tree = UUID()
@@ -302,7 +302,7 @@ struct RelationshipLabelTests {
         #expect(label == "Uncle")
     }
 
-    @Test func cousinViaMutationServiceIsLabelled() throws {
+    @Test func cousinViaMutationServiceIsLabeled() throws {
         let builder = try TestTreeBuilder()
         let service = TreeMutationService()
         let tree = UUID()
@@ -316,7 +316,7 @@ struct RelationshipLabelTests {
         #expect(label == "Cousin")
     }
 
-    @Test func siblingInParentlessGroupIsLabelled() throws {
+    @Test func siblingInParentlessGroupIsLabeled() throws {
         // Given a sibling added to a person who has no recorded parents
         // (a partnerless sibling-group union — only creatable via addSibling)
         let builder = try TestTreeBuilder()

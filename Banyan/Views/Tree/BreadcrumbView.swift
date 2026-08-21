@@ -5,7 +5,7 @@ import SwiftUI
 
 struct BreadcrumbView: View {
     let stack: [UUID]
-    /// The person currently centred in the tree — shown as the trail's final,
+    /// The person currently centered in the tree — shown as the trail's final,
     /// non-tappable segment so the strip also answers "where am I now."
     let current: UUID
     let allPeople: [Person]

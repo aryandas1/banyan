@@ -6,7 +6,7 @@
 // wraps the live Supabase client and can't be unit-tested — this keeps it off
 // the `make coverage` gate. Injected the shared client (no singletons; CLAUDE.md).
 //
-// Backend behaviour below was verified against the live DB (see the step-11
+// Backend behavior below was verified against the live DB (see the step-11
 // prompt's "Backend risks"):
 //   • createInvitation inserts a client-generated token with return=minimal, so
 //     there's no representation read-back round-trip.

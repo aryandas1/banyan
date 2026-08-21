@@ -27,7 +27,7 @@ struct AvatarCrop: Equatable {
         self.offsetY = offsetY
     }
 
-    /// No crop: the photo fills the circle, centred.
+    /// No crop: the photo fills the circle, centered.
     static let identity = AvatarCrop(scale: 1, offsetX: 0, offsetY: 0)
 
     /// Hard ceiling on zoom, so a hard pinch can't upscale a tiny region of the
@@ -47,7 +47,7 @@ struct AvatarCrop: Equatable {
     /// scale held in `1...maxScale`, and each offset bounded so the circle stays
     /// fully covered — accounting for the scaledToFill overflow on each axis, so a
     /// portrait can pan vertically (and a landscape horizontally) to reframe even
-    /// at 1×. `aspectRatio` defaults to 1 (a square: the pre-overflow behaviour).
+    /// at 1×. `aspectRatio` defaults to 1 (a square: the pre-overflow behavior).
     func clamped(aspectRatio: Double = 1) -> AvatarCrop {
         let s = min(AvatarCrop.maxScale, max(1, scale))
         let ar = aspectRatio > 0 ? aspectRatio : 1

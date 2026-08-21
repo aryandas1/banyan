@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Deep-blue filled button (primary actions: Continue, See their family).
 /// Reads `isEnabled` so a `.disabled()` button shows the muted tertiary fill —
-/// callers just add `.disabled(…)` instead of hand-rolling the disabled colour.
+/// callers just add `.disabled(…)` instead of hand-rolling the disabled color.
 struct PrimaryFilledButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 

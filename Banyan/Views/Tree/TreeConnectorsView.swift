@@ -1,10 +1,10 @@
 // TreeConnectorsView.swift
-// Draws the lines linking the three generations. Node views publish their centre
+// Draws the lines linking the three generations. Node views publish their center
 // anchors through NodeAnchorKey; this view resolves them and strokes a single path.
 
 import SwiftUI
 
-/// Collects the centre anchor of every rendered tree node, keyed by person id.
+/// Collects the center anchor of every rendered tree node, keyed by person id.
 struct NodeAnchorKey: PreferenceKey {
     static var defaultValue: [UUID: Anchor<CGPoint>] { [:] }
 
@@ -111,7 +111,7 @@ struct TreeConnectorsView: View {
 
     // MARK: - Helpers
 
-    /// A vertical-horizontal-vertical elbow so off-centre nodes connect with right angles.
+    /// A vertical-horizontal-vertical elbow so off-center nodes connect with right angles.
     private func addElbow(from start: CGPoint, to end: CGPoint, in path: inout Path) {
         let midY = (start.y + end.y) / 2
         path.move(to: start)

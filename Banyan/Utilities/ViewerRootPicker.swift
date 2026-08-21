@@ -4,7 +4,7 @@
 // isn't stored anywhere the viewer can read (trees.owner_id is a *user* id).
 // This picks a sensible top-of-tree person from the pulled graph instead.
 //
-// Long-term the correct fix is to denormalise `root_person_id` onto `trees` and
+// Long-term the correct fix is to denormalize `root_person_id` onto `trees` and
 // have the owner's sync write their `ownerPersonId` (a schema change); this
 // heuristic keeps step 12 self-contained with no backend change.
 //

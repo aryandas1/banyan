@@ -30,7 +30,7 @@ struct ThreeGenView: View {
             }
 
             // GeometryReader wraps only the scroll area, so `geometry.size.height`
-            // is the true viewport height below the breadcrumb — the value we centre
+            // is the true viewport height below the breadcrumb — the value we center
             // the tree block within.
             GeometryReader { geometry in
                 ScrollView {
@@ -49,17 +49,17 @@ struct ThreeGenView: View {
                             childIds: threeGenVM.children.map(\.id)
                         )
                     }
-                    // Centre the 3-generation block in the viewport: a short tree (the
-                    // common case) sits vertically centred instead of pooling whitespace
+                    // Center the 3-generation block in the viewport: a short tree (the
+                    // common case) sits vertically centered instead of pooling whitespace
                     // above the tab bar, while a tree taller than the viewport still
                     // scrolls from the top. Connectors ride along — they're anchored to
-                    // the block's node centres, which live inside this frame.
+                    // the block's node centers, which live inside this frame.
                     .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
                 }
             }
         }
         // Deliberately titleless (finding #8): the breadcrumb below the bar names
-        // the focal person, and Back / My tree fill the bar — a centre title would
+        // the focal person, and Back / My tree fill the bar — a center title would
         // just duplicate the breadcrumb and crowd an already-busy inline bar.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -151,9 +151,9 @@ struct ThreeGenView: View {
         }
     }
 
-    /// A person node that publishes its centre anchor and opens the person sheet on tap.
+    /// A person node that publishes its center anchor and opens the person sheet on tap.
     /// Every node — the focal one included — opens the sheet; "See their family"
-    /// inside the sheet is what re-centres the tree.
+    /// inside the sheet is what re-centers the tree.
     private func node(for person: Person, isFocal: Bool = false) -> some View {
         PersonNodeView(person: person, isFocal: isFocal) {
             onSelectPerson(person)

@@ -18,7 +18,7 @@ final class ViewerModeUITests: XCTestCase {
     func testViewerSeesReadOnlyTree() {
         let app = launchViewerApp()
 
-        // The seeded tree renders, centred on the root person…
+        // The seeded tree renders, centered on the root person…
         XCTAssertTrue(app.staticTexts["Ravi"].waitForExistence(timeout: 15),
                       "the shared tree should render the root person")
         // …with the view-only banner…
@@ -118,7 +118,7 @@ final class ViewerModeUITests: XCTestCase {
 
         // Now read-only: the viewed tree's focal renders, banner shown, Share gone.
         XCTAssertTrue(app.staticTexts["Priya"].waitForExistence(timeout: 15),
-                      "switching should centre the viewed tree's focal person")
+                      "switching should center the viewed tree's focal person")
         XCTAssertTrue(app.staticTexts["View only"].waitForExistence(timeout: 5),
                       "the viewed tree must be read-only")
         XCTAssertFalse(app.buttons["Share"].exists, "a viewer must not see Share")
@@ -162,12 +162,12 @@ final class ViewerModeUITests: XCTestCase {
     }
 
     // Regression guard for the People→Tree "See their family" dead button: tapping
-    // it in the People list must switch to the Tree tab and re-centre it on that
+    // it in the People list must switch to the Tree tab and re-center it on that
     // person. Proven via the "My tree" toolbar button, which is disabled only while
     // the tree is focused on the owner — so it flipping to enabled means the focal
     // moved. Reuses the owner-home seed from the tree-switcher harness (Ravi owns
     // a tree with Meera + Anaya).
-    func testSeeTheirFamilyFromPeopleTabRecentresTree() {
+    func testSeeTheirFamilyFromPeopleTabRecentersTree() {
         let app = XCUIApplication()
         app.launchArguments += ["-uiTestTreeSwitcher"]
         app.launch()
@@ -186,10 +186,10 @@ final class ViewerModeUITests: XCTestCase {
                       "a non-focal person's sheet should offer 'See their family'")
         app.buttons["See their family"].tap()
 
-        // Back on the Tree tab, re-centred on Meera → "My tree" now enabled.
+        // Back on the Tree tab, re-centered on Meera → "My tree" now enabled.
         XCTAssertTrue(app.buttons["My tree"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["My tree"].isEnabled,
-                      "See their family should re-centre the tree off the owner")
+                      "See their family should re-center the tree off the owner")
     }
 
     func testViewerPersonSheetHasNoEditControls() {

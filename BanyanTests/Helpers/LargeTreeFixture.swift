@@ -15,7 +15,7 @@ struct LargeTreeFixture {
     let treeId: UUID
     let service: TreeMutationService
 
-    /// The focal person at the centre of the tree (generation 3 of 5).
+    /// The focal person at the center of the tree (generation 3 of 5).
     let focal: Person
 
     /// All people in the fixture tree.
@@ -25,7 +25,7 @@ struct LargeTreeFixture {
 
     /// Builds a 5-generation tree with this shape:
     /// The tree is deliberately asymmetric — just enough on each branch to reach every
-    /// depth the labelling BFS cares about:
+    /// depth the labeling BFS cares about:
     ///
     /// Gen 1 (great-grandparents): 2 people — paternal only (PatGGF, PatGGM, via PatGF)
     /// Gen 2 (grandparents):       4 people — paternal (PatGF, PatGM) + maternal (MatGF, MatGM)

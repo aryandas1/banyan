@@ -97,7 +97,7 @@ struct PersonNodeView: View {
 
     /// Loads the stored profile photo off the main thread; keeps the initials
     /// avatar when there's none. Keyed by filename so a node reused as the tree
-    /// re-centres cancels its in-flight load instead of painting a stale face.
+    /// re-centers cancels its in-flight load instead of painting a stale face.
     private func loadPhoto() async {
         let loaded = await ProfilePhotoLoader.load(for: person)
         guard !Task.isCancelled else { return }

@@ -11,7 +11,7 @@ import Foundation
 /// groups can be recorded with unknown parents (a partnerless union): without it,
 /// those siblings — and the aunts/uncles/cousins hanging off them — would have no
 /// path up through a shared parent and would read as "Extended family".
-/// Returns "Extended family" for anyone with no recognised path within that depth.
+/// Returns "Extended family" for anyone with no recognized path within that depth.
 struct RelationshipLabel {
 
     /// One hop along a BFS path, tagged with the person reached so their sex can be read.
@@ -65,7 +65,7 @@ struct RelationshipLabel {
         return "Extended family"
     }
 
-    // MARK: - Labelling
+    // MARK: - Labeling
 
     /// Turns a path of steps into a display label. An empty path means the owner themselves.
     private static func labelString(for path: [Step]) -> String {

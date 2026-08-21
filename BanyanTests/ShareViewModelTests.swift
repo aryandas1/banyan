@@ -1,5 +1,5 @@
 // ShareViewModelTests.swift
-// Load / create / revoke behaviour of the sharing ViewModel, using
+// Load / create / revoke behavior of the sharing ViewModel, using
 // MockShareService to assert real service calls and list refreshes.
 // The suite is @MainActor because ShareViewModel is.
 

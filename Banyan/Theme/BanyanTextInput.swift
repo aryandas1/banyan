@@ -1,6 +1,6 @@
 // BanyanTextInput.swift
 // A ViewModifier that gives text fields a filled, rounded appearance with a
-// coloured border when focused — larger and easier to see/tap for older users,
+// colored border when focused — larger and easier to see/tap for older users,
 // matching the button styling in the add-person flow. Apply via
 // .banyanTextInput(focused:). Lives in Theme/ (off the coverage gate) like the
 // rest of the appearance layer.
@@ -29,7 +29,7 @@ struct BanyanTextInput: ViewModifier {
 
 extension View {
     /// Applies the Banyan filled text-field style. Pass `focused: true` when the
-    /// field is active to show the accent-colour border.
+    /// field is active to show the accent-color border.
     func banyanTextInput(focused: Bool = false) -> some View {
         modifier(BanyanTextInput(isFocused: focused))
     }

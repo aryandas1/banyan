@@ -1,5 +1,5 @@
 // TreeViewModel.swift
-// Owns which person the tree is centred on, and the trail of people walked through to get there.
+// Owns which person the tree is centered on, and the trail of people walked through to get there.
 
 import Foundation
 
@@ -15,7 +15,7 @@ final class TreeViewModel {
         self.graphService = graphService
     }
 
-    /// Centres the tree on a person, pushing the previous focus onto the back stack.
+    /// Centers the tree on a person, pushing the previous focus onto the back stack.
     /// Re-focusing the person already in focus does nothing, so the stack cannot fill with repeats.
     func focus(on personId: UUID) {
         guard personId != focusedPersonId else { return }
@@ -47,7 +47,7 @@ final class TreeViewModel {
         focusedPersonId = personId
     }
 
-    /// Clears the history and centres the tree on the tree's owner.
+    /// Clears the history and centers the tree on the tree's owner.
     func resetToRoot(ownerId: UUID) {
         navigationStack.removeAll()
         focusedPersonId = ownerId

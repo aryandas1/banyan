@@ -8,7 +8,7 @@ import SwiftData
 struct PeopleListView: View {
     let ownerPersonId: UUID
     /// Called with a person id when the user taps "See their family" — the parent
-    /// (MainTabView) switches to the Tree tab and re-centres it on that person.
+    /// (MainTabView) switches to the Tree tab and re-centers it on that person.
     let onSeeFamily: (UUID) -> Void
 
     @AppStorage("treeId") private var treeIdString: String = ""
@@ -72,7 +72,7 @@ struct PeopleListView: View {
             .onChange(of: treePeople.map(\.id)) { _, _ in rebuildLabelCache() }
             .sheet(item: $selectedPerson) { person in
                 // "See their family" now dismisses the sheet and hands the person up
-                // to MainTabView, which switches to the Tree tab and re-centres it.
+                // to MainTabView, which switches to the Tree tab and re-centers it.
                 // (onAddPerson still just dismisses — adding from the list is separate.)
                 PersonSheetView(
                     person: person,
@@ -99,7 +99,7 @@ struct PeopleListView: View {
 
     /// Recomputes every tree member's owner-relative label in one pass. Called on appear and
     /// whenever `treePeople`'s id-set changes (add/delete), so search keystrokes — which only
-    /// re-render — never trigger BFS. The owner is labelled "That's you"; everyone else via BFS.
+    /// re-render — never trigger BFS. The owner is labeled "That's you"; everyone else via BFS.
     private func rebuildLabelCache() {
         guard let owner else { return }
         var cache: [UUID: String] = [:]

@@ -10,7 +10,7 @@ import SwiftData
 final class PersonPhoto {
     var id: UUID
     var treeId: UUID
-    /// Denormalised owner id — kept for the step-14 Supabase queries, so a photo
+    /// Denormalized owner id — kept for the step-14 Supabase queries, so a photo
     /// row can be matched to its person without a join.
     var personId: UUID
     /// Local file in the app's documents directory — filename only, not a path.

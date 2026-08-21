@@ -4,7 +4,7 @@
 
 import Foundation
 
-/// A recognised deep link into the app.
+/// A recognized deep link into the app.
 enum DeepLink: Equatable {
     case invite(token: String)
 }

@@ -9,7 +9,7 @@ import Foundation
 final class ThreeGenViewModel {
     private let graphService: GraphServiceProtocol
 
-    /// The person currently centred in the tree.
+    /// The person currently centered in the tree.
     private(set) var focalPerson: Person
 
     /// The focal person's parents (partners in the union where focal is a child).
@@ -25,7 +25,7 @@ final class ThreeGenViewModel {
     /// The view caps display at 3; excess is shown as a "+N more" label.
     private(set) var siblings: [Person] = []
 
-    /// Creates the view model centred on a person and loads their 3-generation snapshot.
+    /// Creates the view model centered on a person and loads their 3-generation snapshot.
     init(focalPerson: Person, graphService: GraphServiceProtocol) {
         self.graphService = graphService
         self.focalPerson = focalPerson

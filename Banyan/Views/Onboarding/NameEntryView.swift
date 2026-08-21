@@ -26,7 +26,7 @@ struct NameEntryView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(BanyanTheme.Color.textPrimary)
 
-                Text("You'll be the centre of your tree.")
+                Text("You'll be the center of your tree.")
                     .font(.subheadline)
                     .foregroundStyle(BanyanTheme.Color.textSecondary)
             }

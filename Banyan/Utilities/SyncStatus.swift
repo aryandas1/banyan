@@ -21,7 +21,7 @@ enum SyncStatus: Equatable {
     /// Nothing to report yet: never synced, no error, not syncing.
     case idle
 
-    /// A colour intent for the view — kept abstract (no SwiftUI Color) so this type
+    /// A color intent for the view — kept abstract (no SwiftUI Color) so this type
     /// stays pure and testable; the view maps each case to a theme token.
     enum Tone: Equatable {
         case neutral
@@ -40,7 +40,7 @@ enum SyncStatus: Equatable {
         return .idle
     }
 
-    /// The colour intent for this status.
+    /// The color intent for this status.
     var tone: Tone {
         switch self {
         case .syncing:  return .working
