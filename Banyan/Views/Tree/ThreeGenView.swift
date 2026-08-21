@@ -20,16 +20,19 @@ struct ThreeGenView: View {
     let onAddPerson: (AddPersonContext) -> Void
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                BreadcrumbView(
-                    stack: treeVM.navigationStack,
-                    current: threeGenVM.focalPerson.id,
-                    allPeople: allPeople
-                ) { personId in
-                    treeVM.jumpTo(personId: personId)
-                }
+        VStack(spacing: 0) {
+            BreadcrumbView(
+                stack: treeVM.navigationStack,
+                current: threeGenVM.focalPerson.id,
+                allPeople: allPeople
+            ) { personId in
+                treeVM.jumpTo(personId: personId)
+            }
 
+            // GeometryReader wraps only the scroll area, so `geometry.size.height`
+            // is the true viewport height below the breadcrumb — the value we centre
+            // the tree block within.
+            GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 32) {
                         parentRow
@@ -46,6 +49,12 @@ struct ThreeGenView: View {
                             childIds: threeGenVM.children.map(\.id)
                         )
                     }
+                    // Centre the 3-generation block in the viewport: a short tree (the
+                    // common case) sits vertically centred instead of pooling whitespace
+                    // above the tab bar, while a tree taller than the viewport still
+                    // scrolls from the top. Connectors ride along — they're anchored to
+                    // the block's node centres, which live inside this frame.
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
                 }
             }
         }
