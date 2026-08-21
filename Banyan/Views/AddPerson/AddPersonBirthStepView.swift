@@ -19,12 +19,6 @@ struct AddPersonBirthStepView: View {
     /// toolbar "Done" drives this — otherwise the keyboard can sit over Continue.
     @FocusState private var yearFieldFocused: Bool
 
-    /// Full month names, fixed (display must not shift with the runtime locale).
-    private static let monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             Text("When were they born?")
@@ -39,50 +33,7 @@ struct AddPersonBirthStepView: View {
                 .banyanTextInput(focused: yearFieldFocused)
 
             // Month + Day — wheel pickers (the standard iOS pattern for short lists).
-            HStack(spacing: 0) {
-                VStack(spacing: 4) {
-                    Text("Month")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("Month", selection: $selectedMonth) {
-                        Text("—").tag(0)
-                        ForEach(1...12, id: \.self) { month in
-                            Text(Self.monthNames[month - 1]).tag(month)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(height: 140)
-                    .clipped()
-                }
-                .frame(maxWidth: .infinity)
-
-                Divider().frame(height: 140)
-
-                // A day is only meaningful once a month is chosen.
-                VStack(spacing: 4) {
-                    Text("Day")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("Day", selection: $selectedDay) {
-                        Text("—").tag(0)
-                        ForEach(1...31, id: \.self) { day in
-                            Text("\(day)").tag(day)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(height: 140)
-                    .clipped()
-                    .disabled(selectedMonth == 0)
-                    .opacity(selectedMonth == 0 ? 0.35 : 1)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .background(BanyanTheme.Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(BanyanTheme.Color.border, lineWidth: 1)
-            )
+            MonthDayWheels(month: $selectedMonth, day: $selectedDay)
 
             Button {
                 vm.birthYearText = ""

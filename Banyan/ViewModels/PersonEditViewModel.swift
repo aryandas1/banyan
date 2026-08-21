@@ -13,8 +13,11 @@ final class PersonEditViewModel {
     var sex: Sex
     var birthYearText: String
     var birthMonthText: String   // "1"–"12"; empty = unknown
+    var birthDayText: String     // "1"–"31"; empty = unknown (kept only with a month)
     var isDeceased: Bool
     var deathYearText: String
+    var deathMonthText: String   // "1"–"12"; empty = unknown
+    var deathDayText: String     // "1"–"31"; empty = unknown (kept only with a month)
     var bio: String
 
     private(set) var isSaving: Bool = false
@@ -25,20 +28,33 @@ final class PersonEditViewModel {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The birth year (and optional month) parsed into a PartialDate, or nil when blank/invalid.
+    /// The birth year plus optional month and day parsed into a PartialDate, or nil
+    /// when the year is blank/invalid. A day is only kept alongside a valid month.
     var birthDate: PartialDate? {
         guard let year = Int(birthYearText), year > 0 else { return nil }
-        let month = Int(birthMonthText)   // nil when blank/invalid — that's fine
-        return PartialDate(year: year, month: month)
+        return PartialDate(year: year, month: Self.month(birthMonthText), day: Self.day(birthDayText, month: birthMonthText))
     }
 
     /// A deceased person keeps a non-nil deathDate even with an unknown year, so
     /// `Person.isDeceased` (derived from `deathDate != nil`) survives the round-trip.
-    /// This mirrors the decision made in step 4 for the add flow.
+    /// This mirrors the decision made in step 4 for the add flow. Month/day (for
+    /// shraddha) are kept when present, a day only alongside a valid month.
     var deathDate: PartialDate? {
         guard isDeceased else { return nil }
         guard let year = Int(deathYearText), year > 0 else { return PartialDate() }
-        return PartialDate(year: year)
+        return PartialDate(year: year, month: Self.month(deathMonthText), day: Self.day(deathDayText, month: deathMonthText))
+    }
+
+    /// A validated 1–12 month from text, or nil.
+    private static func month(_ text: String) -> Int? {
+        Int(text).flatMap { (1...12).contains($0) ? $0 : nil }
+    }
+
+    /// A validated 1–31 day from text, but only when `monthText` is a valid month
+    /// (a day without a month is meaningless — matches PartialDate's rule).
+    private static func day(_ text: String, month monthText: String) -> Int? {
+        guard month(monthText) != nil else { return nil }
+        return Int(text).flatMap { (1...31).contains($0) ? $0 : nil }
     }
 
     /// Seeds every editable field from the person being edited.
@@ -48,8 +64,11 @@ final class PersonEditViewModel {
         sex = person.sex
         birthYearText = person.birthDate?.year.map(String.init) ?? ""
         birthMonthText = person.birthDate?.month.map(String.init) ?? ""
+        birthDayText = person.birthDate?.day.map(String.init) ?? ""
         isDeceased = person.isDeceased
         deathYearText = person.deathDate?.year.map(String.init) ?? ""
+        deathMonthText = person.deathDate?.month.map(String.init) ?? ""
+        deathDayText = person.deathDate?.day.map(String.init) ?? ""
         bio = person.bio ?? ""
     }
 

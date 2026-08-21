@@ -25,6 +25,10 @@ final class AddPersonViewModel {
     var birthDayText: String = ""
     var isDeceased: Bool = false
     var deathYearText: String = ""
+    /// Optional death month (1–12); nil when unknown. A day is only kept if a month
+    /// is set. Exact death dates matter for Hindu shraddha observances.
+    var deathMonth: Int? = nil
+    var deathDayText: String = ""
     private(set) var isSaving: Bool = false
     var saveError: Error? = nil
 
@@ -50,10 +54,14 @@ final class AddPersonViewModel {
         return PartialDate(year: year, month: month, day: day)
     }
 
-    /// The death year parsed into a year-only PartialDate — only when deceased.
+    /// The death date parsed from the year (required) plus optional month and day —
+    /// only when deceased. Month/day stay unknown unless entered; a day is only kept
+    /// alongside a month (matching PartialDate and the birth-date rule).
     var deathDate: PartialDate? {
         guard isDeceased, let year = Int(deathYearText), year > 0 else { return nil }
-        return PartialDate(year: year)
+        let month = deathMonth.flatMap { (1...12).contains($0) ? $0 : nil }
+        let day = month == nil ? nil : Int(deathDayText).flatMap { (1...31).contains($0) ? $0 : nil }
+        return PartialDate(year: year, month: month, day: day)
     }
 
     /// The name as it will be saved, for the review card.
@@ -79,11 +87,12 @@ final class AddPersonViewModel {
         }
     }
 
-    /// The living/deceased line on the review card.
+    /// The living/deceased line on the review card — shows the full death date
+    /// (day/month/year as known), so an exact shraddha date is confirmed before save.
     var statusDescription: String {
         guard isDeceased else { return "Living" }
-        guard let year = deathDate?.year else { return "Passed away" }
-        return "Passed away in \(year)"
+        guard let deathDate else { return "Passed away" }
+        return "Passed away \(deathDate.displayString)"
     }
 
     /// The union whose children a new partner would co-parent if the user says so —

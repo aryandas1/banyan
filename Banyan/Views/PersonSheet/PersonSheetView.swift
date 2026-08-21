@@ -68,6 +68,8 @@ struct PersonSheetView: View {
                 }
                 .listRowSeparator(.hidden)
 
+                datesSection
+
                 familySection
 
                 photosSection
@@ -450,6 +452,76 @@ struct PersonSheetView: View {
         } catch {
             deleteError = error
         }
+    }
+
+    // MARK: - Dates
+
+    /// Full birth and (if deceased) death dates, each with an anniversary note when
+    /// the month and day are known — a birthday for the living, shraddha for the
+    /// deceased. Hidden entirely when no date is recorded.
+    @ViewBuilder
+    private var datesSection: some View {
+        if person.birthDate != nil || person.isDeceased {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Dates")
+                        .font(.headline)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
+
+                    if let birth = person.birthDate {
+                        dateRow(title: "Born", value: birth.displayString, note: birthdayNote)
+                    }
+                    if person.isDeceased {
+                        dateRow(title: "Passed away", value: deathDateValue, note: shraddhaNote)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    private func dateRow(title: String, value: String?, note: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(BanyanTheme.Color.textSecondary)
+                .frame(width: 96, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value ?? "Not recorded")
+                    .font(.body)
+                    .foregroundStyle(BanyanTheme.Color.textPrimary)
+                if let note {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The death date's display, or nil when a deceased person has no date recorded
+    /// (so the row reads "Not recorded" rather than "Unknown").
+    private var deathDateValue: String? {
+        guard let death = person.deathDate else { return nil }
+        let text = death.displayString
+        return text == "Unknown" ? nil : text
+    }
+
+    /// A living person's upcoming birthday, when the birth month + day are known.
+    private var birthdayNote: String? {
+        guard !person.isDeceased, let birth = person.birthDate,
+              let phrase = AnniversaryCountdown.phrase(for: birth) else { return nil }
+        return "🎂 Birthday \(phrase)"
+    }
+
+    /// A deceased person's upcoming death anniversary (shraddha), when the death
+    /// month + day are known.
+    private var shraddhaNote: String? {
+        guard person.isDeceased, let death = person.deathDate,
+              let phrase = AnniversaryCountdown.phrase(for: death) else { return nil }
+        return "🪔 Shraddha \(phrase)"
     }
 
     // MARK: - Derived text

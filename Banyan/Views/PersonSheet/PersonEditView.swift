@@ -78,6 +78,8 @@ struct PersonEditView: View {
                 .keyboardType(.numberPad)
             TextField("Birth month (1–12, optional)", text: $editVM.birthMonthText)
                 .keyboardType(.numberPad)
+            TextField("Birth day (optional)", text: $editVM.birthDayText)
+                .keyboardType(.numberPad)
         }
     }
 
@@ -86,6 +88,11 @@ struct PersonEditView: View {
             Toggle("Passed away", isOn: $editVM.isDeceased)
             if editVM.isDeceased {
                 TextField("Death year (optional)", text: $editVM.deathYearText)
+                    .keyboardType(.numberPad)
+                // Exact month/day matter for shraddha observances.
+                TextField("Death month (1–12, optional)", text: $editVM.deathMonthText)
+                    .keyboardType(.numberPad)
+                TextField("Death day (optional)", text: $editVM.deathDayText)
                     .keyboardType(.numberPad)
             }
         }
