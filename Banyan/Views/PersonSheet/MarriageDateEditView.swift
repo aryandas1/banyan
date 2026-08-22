@@ -1,7 +1,8 @@
 // MarriageDateEditView.swift
-// A small sheet to set or change a marriage's anniversary date after the fact,
-// reached by tapping a marriage row on the person-sheet Dates card. Same year +
-// month/day capture as the add-partner step, wrapped in a Cancel/Save editing sheet.
+// A small sheet to edit a couple's relationship after the fact — married vs
+// (unmarried) partners, and the anniversary date for a marriage. Reached by tapping a
+// partnership row on the person-sheet Dates card. Built as a Form with a short inline
+// title + Cancel/Save, matching PersonEditView (the app's other edit sheet).
 
 import SwiftUI
 import SwiftData
@@ -28,60 +29,54 @@ struct MarriageDateEditView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Relationship with \(vm.partnerName)")
-                    .font(.title)
-                    .fontWeight(.bold)
-
+            Form {
                 // The status toggle drives everything below: a marriage has an
-                // anniversary; a partnership doesn't.
-                Picker("Status", selection: $vm.isMarried) {
-                    Text("Married").tag(true)
-                    Text("Partners").tag(false)
+                // anniversary; a partnership doesn't. The footer explains the latter.
+                Section {
+                    Picker("Status", selection: $vm.isMarried) {
+                        Text("Married").tag(true)
+                        Text("Partners").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("With \(vm.partnerName)")
+                } footer: {
+                    if !vm.isMarried {
+                        Text("Partners aren't married, so there's no wedding anniversary.")
+                    }
                 }
-                .pickerStyle(.segmented)
 
                 if vm.isMarried {
-                    Text("When did they marry?")
-                        .font(.headline)
-                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                    Section("Anniversary") {
+                        TextField("Year, e.g. 1972", text: $vm.marriageYearText)
+                            .keyboardType(.numberPad)
+                            .focused($yearFieldFocused)
 
-                    TextField("Year, e.g. 1972", text: $vm.marriageYearText)
-                        .font(.title2)
-                        .keyboardType(.numberPad)
-                        .focused($yearFieldFocused)
-                        .banyanTextInput(focused: yearFieldFocused)
-
-                    MonthDayWheels(month: $selectedMonth, day: $selectedDay)
+                        // The month/day wheels carry their own bordered surface, so
+                        // drop the Form row's inset/background and let them span.
+                        MonthDayWheels(month: $selectedMonth, day: $selectedDay)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(Color.clear)
+                    }
 
                     if vm.hasExistingDate {
-                        Button(role: .destructive) {
-                            removeDateAndDismiss()
-                        } label: {
-                            Text("Remove anniversary")
-                                .font(.body)
-                                .frame(maxWidth: .infinity, minHeight: 52)
+                        Section {
+                            Button("Remove anniversary", role: .destructive) {
+                                removeDateAndDismiss()
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(BanyanTheme.Color.marriage)
                     }
-                } else {
-                    Text("Partners aren't married, so there's no wedding anniversary.")
-                        .font(.body)
-                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                 }
-
-                Spacer()
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(BanyanTheme.Color.background.ignoresSafeArea())
+            .scrollContentBackground(.hidden)
+            .background(BanyanTheme.Color.background)
+            .navigationTitle("Relationship")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") { saveAndDismiss() }
                 }
                 ToolbarItemGroup(placement: .keyboard) {
