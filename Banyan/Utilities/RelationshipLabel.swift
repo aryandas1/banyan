@@ -1,14 +1,14 @@
 // RelationshipLabel.swift
 // Derives a human-readable relationship label from the tree owner to any person,
 // in a relational / Indian-family style (e.g. a parent's cousin — and their spouse —
-// reads as "Uncle"/"Aunty", not "first cousin once removed"). A pure value type —
+// reads as "Uncle"/"Aunt", not "first cousin once removed"). A pure value type —
 // no SwiftUI, no SwiftData. It reads the graph only through GraphServiceProtocol.
 //
 // How it works: the blood relationship is derived from the CLOSEST COMMON ANCESTOR
 // of the two people — the generations up from each side (a, b) fully determine the
 // kinship (parent/grandparent, aunt/uncle, cousin, niece/nephew, …). Collateral
 // relations then collapse by *generation gap* rather than cousin-degree: anyone an
-// older generation across is Uncle/Aunty, the same generation is a cousin, a younger
+// older generation across is Uncle/Aunt, the same generation is a cousin, a younger
 // generation is Niece/Nephew. Spouses are handled by a final in-law pass.
 
 import Foundation
@@ -53,7 +53,68 @@ struct RelationshipLabel {
             }
         }
 
+        // 4) A relative of a sibling-in-law, named possessively rather than dropped to
+        //    "Extended family" — "Sister-in-law's mother", "Brother-in-law's brother",
+        //    "Sister-in-law's sister's husband".
+        for (inLaw, inLawLabel) in siblingInLaws(of: owner, using: graph) {
+            if let descriptor = relativeDescriptor(from: inLaw, to: target, using: graph) {
+                return "\(inLawLabel)'s \(descriptor)"
+            }
+        }
+
         return "Extended family"
+    }
+
+    // MARK: - Sibling-in-law's relatives
+
+    /// The owner's sibling-in-laws — their spouse's siblings, and their siblings'
+    /// spouses — each paired with its "Brother-in-law"/"Sister-in-law" label, so a
+    /// relative reached through one can be named "Sister-in-law's …". Deduplicated and
+    /// deterministically ordered (spouse-side first) for stable labels.
+    private static func siblingInLaws(
+        of owner: Person,
+        using graph: GraphServiceProtocol
+    ) -> [(person: Person, label: String)] {
+        var result: [(Person, String)] = []
+        var seen: Set<UUID> = [owner.id]
+        func add(_ p: Person) {
+            guard seen.insert(p.id).inserted else { return }
+            result.append((p, sexed(male: "Brother-in-law", female: "Sister-in-law", unknown: "Sibling-in-law", p.sex)))
+        }
+        for spouse in graph.allPartners(of: owner) {
+            for sibling in graph.siblings(of: spouse) { add(sibling) }
+        }
+        for sibling in graph.siblings(of: owner) {
+            for spouse in graph.allPartners(of: sibling) { add(spouse) }
+        }
+        return result
+    }
+
+    /// How `target` relates to `inLaw`, as a lower-cased possessive descriptor:
+    /// a direct blood tie ("mother", "brother", "aunt"), or the spouse of one
+    /// ("sister's husband"). Nil when target isn't a close relative of the in-law.
+    private static func relativeDescriptor(
+        from inLaw: Person,
+        to target: Person,
+        using graph: GraphServiceProtocol
+    ) -> String? {
+        if let kin = bloodKinship(from: inLaw, to: target, using: graph) {
+            return lowercasedFirst(render(kin, sex: target.sex))
+        }
+        // The spouse of one of the in-law's blood relatives (e.g. their sister's husband).
+        for relative in graph.allPartners(of: target) where relative.id != inLaw.id {
+            if let kin = bloodKinship(from: inLaw, to: relative, using: graph) {
+                let spouse = sexed(male: "husband", female: "wife", unknown: "partner", target.sex)
+                return "\(lowercasedFirst(render(kin, sex: relative.sex)))'s \(spouse)"
+            }
+        }
+        return nil
+    }
+
+    /// Lower-cases only the first character, leaving the rest (so "Grand-aunt" →
+    /// "grand-aunt", "Cousin-brother" → "cousin-brother").
+    private static func lowercasedFirst(_ text: String) -> String {
+        text.prefix(1).lowercased() + text.dropFirst()
     }
 
     // MARK: - Blood kinship
@@ -184,10 +245,10 @@ struct RelationshipLabel {
 
     private static func olderCollateralLabel(_ g: Int, sex: Sex) -> String {
         switch g {
-        case 1: return sexed(male: "Uncle", female: "Aunty", unknown: "Uncle or aunty", sex)
-        case 2: return sexed(male: "Grand-uncle", female: "Grand-aunty", unknown: "Grand-uncle or aunty", sex)
+        case 1: return sexed(male: "Uncle", female: "Aunt", unknown: "Uncle or aunt", sex)
+        case 2: return sexed(male: "Grand-uncle", female: "Grand-aunt", unknown: "Grand-uncle or aunt", sex)
         default:
-            return greatPrefix(g - 2) + sexed(male: "grand-uncle", female: "grand-aunty", unknown: "grand-uncle or aunty", sex)
+            return greatPrefix(g - 2) + sexed(male: "grand-uncle", female: "grand-aunt", unknown: "grand-uncle or aunt", sex)
         }
     }
 
