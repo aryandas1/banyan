@@ -261,28 +261,13 @@ struct PersonSheetView: View {
                 .buttonStyle(PrimaryFilledButtonStyle())
             }
 
-            // All add/link entry points are hidden for a viewer. Labels drop the
-            // person's name — the whole sheet is already about them.
+            // All add/link entry points are hidden for a viewer.
             if !isReadOnly {
-                addButton("Add parent") { onAddPerson(.parent(of: person)) }
-                addButton("Add partner") { onAddPerson(.partner(of: person)) }
-                addButton("Add child") { onAddPerson(.child(of: person)) }
-                addButton("Add sibling") { onAddPerson(.sibling(of: person)) }
-
-                // Linking an EXISTING person is a different operation from creating a
-                // new relative, so it's de-emphasized (a plain text link, not a filled
-                // row) and set slightly apart — but always available, since you often
-                // link someone in before this person has any family recorded yet.
-                Button {
-                    showLinkSheet = true
-                } label: {
-                    Text("Link to someone already in the tree")
-                        .font(.subheadline)
-                        .foregroundStyle(BanyanTheme.Color.primary)
-                        .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.minimum)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 4)
+                addButton("Add \(person.firstName)'s parent") { onAddPerson(.parent(of: person)) }
+                addButton("Add \(person.firstName)'s partner") { onAddPerson(.partner(of: person)) }
+                addButton("Add \(person.firstName)'s child") { onAddPerson(.child(of: person)) }
+                addButton("Add \(person.firstName)'s sibling") { onAddPerson(.sibling(of: person)) }
+                addButton("Link to someone already in the tree") { showLinkSheet = true }
             }
         }
     }

@@ -203,7 +203,7 @@ final class ViewerModeUITests: XCTestCase {
         // The sheet is up (Close exists), but every mutation control is gone.
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5), "person sheet should open")
         XCTAssertFalse(app.buttons["Edit"].exists, "a viewer must not see Edit")
-        XCTAssertFalse(app.buttons["Add parent"].exists, "a viewer must not see add-relative buttons")
+        XCTAssertFalse(app.buttons["Add Ravi's parent"].exists, "a viewer must not see add-relative buttons")
         XCTAssertFalse(app.buttons["Delete Ravi"].exists, "a viewer must not see Delete")
         // The photo gallery is read-only for a viewer: no add-photo control, and the
         // avatar can't be tapped to change the profile photo.
