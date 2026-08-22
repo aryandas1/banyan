@@ -38,14 +38,17 @@ struct AddPersonMarriageStepView: View {
             MonthDayWheels(month: $selectedMonth, day: $selectedDay)
 
             Button {
+                // Explicitly not married: record a partnership (no anniversary),
+                // clearing any date the user had started entering.
                 vm.marriageYearText = ""
                 vm.marriageMonth = nil
                 vm.marriageDayText = ""
                 selectedMonth = 0
                 selectedDay = 0
+                vm.isUnmarriedPartner = true
                 onContinue()
             } label: {
-                Text("They're not married")
+                Text("They're partners, not married")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 52)
@@ -59,6 +62,9 @@ struct AddPersonMarriageStepView: View {
             Spacer()
 
             Button {
+                // Proceeding as a married couple (a date makes it an anniversary; no
+                // date leaves it an assumed spouse). Clear any earlier "partners" pick.
+                vm.isUnmarriedPartner = false
                 onContinue()
             } label: {
                 Text("Continue")

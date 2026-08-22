@@ -30,7 +30,8 @@ protocol TreeMutationServiceProtocol {
     /// `GraphService.coParentableUnion`), the new partner joins THAT union instead,
     /// becoming a co-parent of its children — the "add my second parent" case.
     /// A non-nil `marriageDate` is recorded as the union's `startDate` (anniversary)
-    /// and marks it `.married`.
+    /// and marks it `.married`. `isUnmarriedPartner` instead marks it `.partnered` (a
+    /// couple who aren't married — labeled "Partner", no anniversary).
     @discardableResult
     func addPartner(
         to anchorPerson: Person,
@@ -42,13 +43,15 @@ protocol TreeMutationServiceProtocol {
         deathDate: PartialDate?,
         coParentExistingChildren: Bool,
         marriageDate: PartialDate?,
+        isUnmarriedPartner: Bool,
         in context: ModelContext
     ) throws -> Person
 
-    /// Sets (or clears, when `date` is nil) the anniversary date on an existing
-    /// union. A non-nil date also marks the union `.married`; clearing leaves the
-    /// type unchanged. The entry point for recording a marriage date after the fact.
-    func setMarriageDate(_ date: PartialDate?, on union: Union, in context: ModelContext) throws
+    /// Sets a partner union's relationship type and, for a marriage, its anniversary
+    /// date. Switching to `.partnered` clears any wedding date (a partnership has
+    /// none); a `.married` union keeps the passed `startDate` (nil = married, date
+    /// unknown). The entry point for correcting a couple's status after the fact.
+    func setUnionRelationship(_ type: UnionType, startDate: PartialDate?, on union: Union, in context: ModelContext) throws
 
     /// Creates a person and links them as a child of `anchorPerson`.
     /// If `anchorPerson` has exactly one union where they are a partner,

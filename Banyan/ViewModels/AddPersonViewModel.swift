@@ -35,6 +35,10 @@ final class AddPersonViewModel {
     var marriageYearText: String = ""
     var marriageMonth: Int? = nil
     var marriageDayText: String = ""
+    /// Set when the user says the couple aren't married on the marriage step — marks
+    /// their union `.partnered` (labeled "Partner", no anniversary) instead of a
+    /// marriage. Only consulted in the `.partner` context.
+    var isUnmarriedPartner: Bool = false
     private(set) var isSaving: Bool = false
     var saveError: Error? = nil
 
@@ -166,6 +170,7 @@ final class AddPersonViewModel {
                 // Only co-parent when the question actually applied AND the user said yes.
                 coParentExistingChildren: coParentQuestionApplies && coParentWithExistingChildren,
                 marriageDate: marriageDate,
+                isUnmarriedPartner: isUnmarriedPartner,
                 in: modelContext
             )
         case .child:

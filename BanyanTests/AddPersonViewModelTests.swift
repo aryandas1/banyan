@@ -331,6 +331,27 @@ struct AddPersonViewModelTests {
         #expect(union?.type == .married)
     }
 
+    @Test func savePartnerAsUnmarriedMarksUnionPartnered() async throws {
+        // Given the add-partner form where the user chose "partners, not married"
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let anchor = builder.makePerson(firstName: "Aryan", treeId: treeId)
+        let vm = AddPersonViewModel(
+            context: .partner(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.firstName = "Advika"
+        vm.isUnmarriedPartner = true
+
+        // When saved
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
+
+        // Then their union is a partnership, not a marriage
+        let union = anchor.links.compactMap(\.union).first
+        #expect(union?.type == .partnered)
+        #expect(union?.startDate == nil)
+    }
+
     @Test func deathDateParsedWhenDeceased() throws {
         // Given a deceased person with a valid death year
         let builder = try TestTreeBuilder()

@@ -71,6 +71,36 @@ struct RelationshipLabelTests {
         #expect(label == "Partner")
     }
 
+    @Test func partneredUnionReadsPartnerRegardlessOfSex() throws {
+        // Given a male partner in an explicitly-unmarried (.partnered) union
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let boyfriend = builder.makePerson(firstName: "Adi", treeId: tree)
+        boyfriend.sex = .male
+        let union = builder.makeUnion(type: .partnered, treeId: tree)
+        builder.link(person: owner, to: union, role: .partner)
+        builder.link(person: boyfriend, to: union, role: .partner)
+
+        // Then he reads as "Partner", not "Husband"
+        #expect(RelationshipLabel.label(from: owner, to: boyfriend, using: graphService) == "Partner")
+    }
+
+    @Test func unknownUnionKeepsSexedSpouseLabel() throws {
+        // Regression guard: an .unknown union (every pre-feature couple) still reads
+        // as the sexed Husband/Wife — the distinction only kicks in for .partnered.
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let wife = builder.makePerson(firstName: "Sita", treeId: tree)
+        wife.sex = .female
+        let union = builder.makeUnion(type: .unknown, treeId: tree)
+        builder.link(person: owner, to: union, role: .partner)
+        builder.link(person: wife, to: union, role: .partner)
+
+        #expect(RelationshipLabel.label(from: owner, to: wife, using: graphService) == "Wife")
+    }
+
     // MARK: - Depth 2
 
     @Test func siblingLabel() throws {

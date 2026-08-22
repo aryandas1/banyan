@@ -77,6 +77,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         deathDate: PartialDate?,
         coParentExistingChildren: Bool = false,
         marriageDate: PartialDate? = nil,
+        isUnmarriedPartner: Bool = false,
         in context: ModelContext
     ) throws -> Person {
         let newPartner = makePerson(
@@ -109,9 +110,13 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             union = newUnion
         }
 
-        // A supplied anniversary marks the union as a marriage. When none is given
-        // the union's type is left as-is (unknown/co-parented) — no date, no claim.
-        if let marriageDate {
+        // Record the couple's status. An explicit "not married" marks the union
+        // `.partnered`; otherwise a supplied anniversary marks it a `.married` with a
+        // date. With neither, the type is left as-is (unknown/co-parented) — the
+        // "assumed spouse, date unknown" case that still reads as Husband/Wife.
+        if isUnmarriedPartner {
+            union.type = .partnered
+        } else if let marriageDate {
             union.startDate = marriageDate
             union.type = .married
         }
@@ -120,14 +125,19 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         return newPartner
     }
 
-    /// Sets (or clears, when `date` is nil) the anniversary date on an existing
-    /// union — the entry point for recording a marriage date after the fact. A
-    /// non-nil date also marks the union `.married`; clearing leaves the type as-is.
-    func setMarriageDate(_ date: PartialDate?, on union: Union, in context: ModelContext) throws {
-        union.startDate = date
-        if date != nil {
-            union.type = .married
-        }
+    /// Sets a partner union's relationship type and, for a marriage, its anniversary
+    /// date — the entry point for correcting or updating a couple's status after the
+    /// fact (e.g. partners who later marry). Switching to `.partnered` clears any
+    /// wedding date, since a partnership has no anniversary; a `.married` union keeps
+    /// whatever `startDate` is passed (nil = married, date unknown).
+    func setUnionRelationship(
+        _ type: UnionType,
+        startDate: PartialDate?,
+        on union: Union,
+        in context: ModelContext
+    ) throws {
+        union.type = type
+        union.startDate = (type == .married) ? startDate : nil
         try context.save()
     }
 

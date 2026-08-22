@@ -32,6 +32,14 @@ final class GraphService: GraphServiceProtocol {
         unions(for: person, role: .partner)
     }
 
+    /// The union in which `a` and `b` are partners together, if any — the edge that
+    /// carries their marriage/partnership `type` and anniversary.
+    func partnerUnion(of a: Person, with b: Person) -> Union? {
+        partnerUnions(of: a).first { union in
+            partners(of: a, in: union).contains { $0.id == b.id }
+        }
+    }
+
     /// The parents of a person — the partner(s) of the union where this person is a child.
     func parents(of person: Person) -> [Person] {
         let result = unions(for: person, role: .child)

@@ -51,6 +51,13 @@ final class PersonSheetViewModel {
         loadProfileImage()
     }
 
+    /// The union type between the focal person and a partner of theirs — drives
+    /// whether the Family row reads "Husband"/"Wife" or "Partner". Falls back to
+    /// `.unknown` (sexed Husband/Wife) when no shared partner union is found.
+    func partnerUnionType(with relative: Person) -> UnionType {
+        marriages.first { $0.partner.id == relative.id }?.union.type ?? .unknown
+    }
+
     /// Loads the current profile photo off the main thread, clearing it when the
     /// person has no photos.
     private func loadProfileImage() {

@@ -28,29 +28,47 @@ struct MarriageDateEditView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Anniversary with \(vm.partnerName)")
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Relationship with \(vm.partnerName)")
                     .font(.title)
                     .fontWeight(.bold)
 
-                TextField("Year, e.g. 1972", text: $vm.marriageYearText)
-                    .font(.title2)
-                    .keyboardType(.numberPad)
-                    .focused($yearFieldFocused)
-                    .banyanTextInput(focused: yearFieldFocused)
+                // The status toggle drives everything below: a marriage has an
+                // anniversary; a partnership doesn't.
+                Picker("Status", selection: $vm.isMarried) {
+                    Text("Married").tag(true)
+                    Text("Partners").tag(false)
+                }
+                .pickerStyle(.segmented)
 
-                MonthDayWheels(month: $selectedMonth, day: $selectedDay)
+                if vm.isMarried {
+                    Text("When did they marry?")
+                        .font(.headline)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
 
-                if vm.hasExistingDate {
-                    Button(role: .destructive) {
-                        removeAndDismiss()
-                    } label: {
-                        Text("Remove anniversary")
-                            .font(.body)
-                            .frame(maxWidth: .infinity, minHeight: 52)
+                    TextField("Year, e.g. 1972", text: $vm.marriageYearText)
+                        .font(.title2)
+                        .keyboardType(.numberPad)
+                        .focused($yearFieldFocused)
+                        .banyanTextInput(focused: yearFieldFocused)
+
+                    MonthDayWheels(month: $selectedMonth, day: $selectedDay)
+
+                    if vm.hasExistingDate {
+                        Button(role: .destructive) {
+                            removeDateAndDismiss()
+                        } label: {
+                            Text("Remove anniversary")
+                                .font(.body)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(BanyanTheme.Color.marriage)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(BanyanTheme.Color.marriage)
+                } else {
+                    Text("Partners aren't married, so there's no wedding anniversary.")
+                        .font(.body)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                 }
 
                 Spacer()
@@ -77,6 +95,11 @@ struct MarriageDateEditView: View {
                 Text(vm.saveError?.localizedDescription ?? "Something went wrong. Please try again.")
             }
         }
+        // A focused three-field edit — present it as a right-sized sheet with a
+        // grabber rather than full screen, so it reads as a quick change, not a page.
+        // Expandable to large for big Dynamic Type / the keyboard.
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .onAppear {
             selectedMonth = vm.marriageMonth ?? 0
             selectedDay = Int(vm.marriageDayText) ?? 0
@@ -103,9 +126,9 @@ struct MarriageDateEditView: View {
         }
     }
 
-    private func removeAndDismiss() {
+    private func removeDateAndDismiss() {
         do {
-            try vm.remove(in: modelContext, sync: syncService)
+            try vm.removeDate(in: modelContext, sync: syncService)
             dismiss()
         } catch {
             vm.saveError = error

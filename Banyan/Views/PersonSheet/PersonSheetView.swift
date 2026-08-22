@@ -348,7 +348,7 @@ struct PersonSheetView: View {
     private func label(_ kind: RelationKind, for relative: Person) -> String {
         switch kind {
         case .parent:  return sexedWord(relative, male: "Father",  female: "Mother",   unknown: "Parent")
-        case .partner: return sexedWord(relative, male: "Husband", female: "Wife",     unknown: "Partner")
+        case .partner: return RelationshipLabel.partnerWord(unionType: sheetVM.partnerUnionType(with: relative), sex: relative.sex)
         case .child:   return sexedWord(relative, male: "Son",     female: "Daughter", unknown: "Child")
         case .sibling: return sexedWord(relative, male: "Brother", female: "Sister",   unknown: "Sibling")
         }
@@ -610,44 +610,43 @@ struct PersonSheetView: View {
         return "🪔 Shraddha \(phrase)"
     }
 
-    /// The marriages shown on the Dates card. The owner sees every partnership (so a
-    /// date-less one offers an "Add anniversary" affordance); a viewer only sees the
-    /// ones that actually have a date, so read-only never shows an empty prompt.
+    /// The partnerships shown on the Dates card. The owner sees every one — marriages
+    /// (dated or a date-less "Add anniversary" prompt) and unmarried partners (a
+    /// tappable status row) — so each has an entry point to edit its status. A viewer
+    /// only sees the ones with a date (always marriages), so read-only never shows an
+    /// edit prompt or a bare partner row.
     private var visibleMarriages: [Marriage] {
         isReadOnly ? sheetVM.marriages.filter { $0.startDate != nil } : sheetVM.marriages
     }
 
-    /// One marriage row: a dated "Married <partner>" row (tappable to edit for the
-    /// owner, with a 💍 anniversary pill when it's coming up), or — owner only, and
-    /// only when no date is set — a subtle prompt to add one.
+    /// One partnership row on the Dates card: an unmarried-partner status row, a dated
+    /// "Married <partner>" row (with a 💍 pill when the anniversary is near), or — when
+    /// married with no date yet — a prompt to add one. All are tappable to edit for the
+    /// owner; a viewer sees only the dated marriage, non-interactive.
     @ViewBuilder
     private func marriageRow(_ marriage: Marriage) -> some View {
-        if let start = marriage.startDate {
-            let row = dateRow(
-                icon: "heart.fill",
-                tint: BanyanTheme.Color.marriage,
-                title: "Married \(marriage.partner.firstName)",
-                value: start.displayString,
-                age: nil,
-                pill: anniversaryPill(for: start)
-            )
-            if isReadOnly {
-                row
-            } else {
-                Button {
-                    marriageToEdit = marriage
-                } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        row
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(BanyanTheme.Color.textSecondary)
-                            .padding(.top, 8)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Change anniversary with \(marriage.partner.firstName)")
+        if marriage.union.type == .partnered {
+            // Owner only (a viewer's visibleMarriages excludes date-less unions).
+            editableMarriageRow(marriage, accessibility: "Edit relationship with \(marriage.partner.firstName)") {
+                dateRow(
+                    icon: "heart",
+                    tint: BanyanTheme.Color.marriage,
+                    title: "Partner",
+                    value: marriage.partner.firstName,
+                    age: nil,
+                    pill: nil
+                )
+            }
+        } else if let start = marriage.startDate {
+            editableMarriageRow(marriage, accessibility: "Change anniversary with \(marriage.partner.firstName)") {
+                dateRow(
+                    icon: "heart.fill",
+                    tint: BanyanTheme.Color.marriage,
+                    title: "Married \(marriage.partner.firstName)",
+                    value: start.displayString,
+                    age: marriedYearsText(start),
+                    pill: anniversaryPill(for: start)
+                )
             }
         } else {
             // Owner only (a viewer's visibleMarriages excludes date-less unions).
@@ -665,12 +664,53 @@ struct PersonSheetView: View {
                         .font(.body)
                         .foregroundStyle(BanyanTheme.Color.textSecondary)
                     Spacer(minLength: 0)
+                    // Match the saved row's trailing chevron so the prompt reads as
+                    // tappable too — an outline heart (unset) vs the filled one (set).
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
                 }
                 .contentShape(Rectangle())
                 .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// Wraps a Dates-card partnership row so the owner can tap it (adding a trailing
+    /// chevron + a11y label) to open the relationship editor; a viewer sees it plain.
+    @ViewBuilder
+    private func editableMarriageRow(
+        _ marriage: Marriage,
+        accessibility: String,
+        @ViewBuilder row: () -> some View
+    ) -> some View {
+        if isReadOnly {
+            row()
+        } else {
+            Button {
+                marriageToEdit = marriage
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    row()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                        .padding(.top, 8)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibility)
+        }
+    }
+
+    /// Whole years married so far, shown beside the date like the birthday's age —
+    /// e.g. "31 yrs". Nil when the marriage year is unknown or it's the same year
+    /// (a "0 yrs" reads oddly on a wedding row).
+    private func marriedYearsText(_ start: PartialDate) -> String? {
+        guard let years = PersonAge.years(from: start, to: nil), years >= 1 else { return nil }
+        return "\(years) yrs"
     }
 
     /// The anniversary pill for a marriage — only when the next anniversary falls

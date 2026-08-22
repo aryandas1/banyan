@@ -518,8 +518,8 @@ struct TreeMutationServiceTests {
         #expect(union?.startDate?.day == 12)
     }
 
-    @Test func setMarriageDateOnExistingUnionRecordsItAndMarksMarried() throws {
-        // Given an existing, date-less partner union
+    @Test func setUnionRelationshipMarriedRecordsTypeAndDate() throws {
+        // Given an existing, date-less union
         let builder = try TestTreeBuilder()
         let treeId = UUID()
         let a = builder.makePerson(firstName: "A", treeId: treeId)
@@ -528,16 +528,35 @@ struct TreeMutationServiceTests {
         builder.link(person: a, to: union, role: .partner)
         builder.link(person: b, to: union, role: .partner)
 
-        // When an anniversary date is set on it
-        try service.setMarriageDate(PartialDate(year: 1990, month: 6, day: 21), on: union, in: builder.context)
+        // When set to married with an anniversary
+        try service.setUnionRelationship(.married, startDate: PartialDate(year: 1990, month: 6, day: 21), on: union, in: builder.context)
 
         // Then the union carries the date and is marked married
-        #expect(union.startDate?.year == 1990)
         #expect(union.type == .married)
+        #expect(union.startDate?.year == 1990)
     }
 
-    @Test func setMarriageDateNilClearsTheDate() throws {
-        // Given a union with an anniversary date already set
+    @Test func addPartnerAsUnmarriedMarksUnionPartneredWithNoDate() throws {
+        // Given a person with no unions
+        let builder = try TestTreeBuilder()
+        let focal = builder.makePerson(firstName: "Aryan")
+
+        // When a partner is added as explicitly not married
+        try service.addPartner(
+            to: focal, firstName: "Advika", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            isUnmarriedPartner: true,
+            in: builder.context
+        )
+
+        // Then their union is .partnered and carries no anniversary
+        let union = focal.links.compactMap(\.union).first
+        #expect(union?.type == .partnered)
+        #expect(union?.startDate == nil)
+    }
+
+    @Test func setUnionRelationshipPartneredClearsAnyDate() throws {
+        // Given a married union with an anniversary
         let builder = try TestTreeBuilder()
         let treeId = UUID()
         let a = builder.makePerson(firstName: "A", treeId: treeId)
@@ -547,10 +566,30 @@ struct TreeMutationServiceTests {
         builder.link(person: a, to: union, role: .partner)
         builder.link(person: b, to: union, role: .partner)
 
-        // When the date is cleared
-        try service.setMarriageDate(nil, on: union, in: builder.context)
+        // When switched to partners (any passed date is dropped — a partnership has none)
+        try service.setUnionRelationship(.partnered, startDate: PartialDate(year: 2000), on: union, in: builder.context)
 
-        // Then the date is gone (the type is deliberately left as-is)
+        // Then it's an unmarried partnership with no wedding date
+        #expect(union.type == .partnered)
+        #expect(union.startDate == nil)
+    }
+
+    @Test func setUnionRelationshipMarriedWithNilKeepsMarriedNoDate() throws {
+        // Given a married union with an anniversary
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let a = builder.makePerson(firstName: "A", treeId: treeId)
+        let b = builder.makePerson(firstName: "B", treeId: treeId)
+        let union = builder.makeUnion(type: .married, treeId: treeId)
+        union.startDate = PartialDate(year: 1990)
+        builder.link(person: a, to: union, role: .partner)
+        builder.link(person: b, to: union, role: .partner)
+
+        // When kept married but the date removed
+        try service.setUnionRelationship(.married, startDate: nil, on: union, in: builder.context)
+
+        // Then it stays married with no recorded date
+        #expect(union.type == .married)
         #expect(union.startDate == nil)
     }
 }

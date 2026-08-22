@@ -297,4 +297,21 @@ struct GraphServiceTests {
         #expect(unions.count == 1)
         #expect(unions.first?.id == marriage.id)
     }
+
+    @Test func partnerUnionFindsTheSharedUnionBetweenTwoPartners() throws {
+        // Given two people who are partners in one union
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let me = builder.makePerson(firstName: "Me")
+        let spouse = builder.makePerson(firstName: "Spouse")
+        let stranger = builder.makePerson(firstName: "Stranger")
+        let union = builder.makeUnion(type: .partnered)
+        builder.link(person: me, to: union, role: .partner)
+        builder.link(person: spouse, to: union, role: .partner)
+
+        // Then their shared union is found (with its type), and there is none with an unrelated person
+        #expect(service.partnerUnion(of: me, with: spouse)?.id == union.id)
+        #expect(service.partnerUnion(of: me, with: spouse)?.type == .partnered)
+        #expect(service.partnerUnion(of: me, with: stranger) == nil)
+    }
 }

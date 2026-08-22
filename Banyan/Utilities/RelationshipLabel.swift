@@ -24,9 +24,10 @@ struct RelationshipLabel {
     ) -> String {
         if owner.id == target.id { return "You" }
 
-        // A direct spouse is named first (they may also be a distant blood relative).
-        if graph.allPartners(of: owner).contains(where: { $0.id == target.id }) {
-            return sexed(male: "Husband", female: "Wife", unknown: "Partner", target.sex)
+        // A direct partner is named first (they may also be a distant blood relative).
+        // Whether it reads "Husband"/"Wife" or "Partner" depends on the union's type.
+        if let union = graph.partnerUnion(of: owner, with: target) {
+            return partnerWord(unionType: union.type, sex: target.sex)
         }
 
         // 1) Blood / relational path via the closest common ancestor.
@@ -240,6 +241,22 @@ struct RelationshipLabel {
             return sexed(male: "Step-son", female: "Step-daughter", unknown: "Step-child", sex)
         default:
             return nil
+        }
+    }
+
+    // MARK: - Partners
+
+    /// The word for a direct partner, honoring whether the union is a marriage.
+    /// A `.partnered` union reads "Partner" for everyone (a couple who aren't
+    /// married); `.married` and `.unknown` keep the sexed Husband/Wife (unknown sex →
+    /// "Partner"), so existing trees — where every couple's union is `.unknown` or
+    /// `.married` — are unchanged.
+    static func partnerWord(unionType: UnionType, sex: Sex) -> String {
+        switch unionType {
+        case .partnered:
+            return "Partner"
+        case .married, .unknown:
+            return sexed(male: "Husband", female: "Wife", unknown: "Partner", sex)
         }
     }
 
