@@ -457,45 +457,79 @@ struct PersonSheetView: View {
 
     // MARK: - Dates
 
-    /// Full birth and (if deceased) death dates, each with an anniversary note when
-    /// the month and day are known — a birthday for the living, shraddha for the
+    /// A soft card of the birth and (if deceased) death dates: each row has a small
+    /// tinted glyph, the age inline, and an anniversary pill when the next occurrence
+    /// is within the next few months — a birthday for the living, shraddha for the
     /// deceased. Hidden entirely when no date is recorded.
     @ViewBuilder
     private var datesSection: some View {
         if person.birthDate != nil || person.isDeceased {
             Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Dates")
-                        .font(.headline)
-                        .foregroundStyle(BanyanTheme.Color.textPrimary)
-
+                VStack(alignment: .leading, spacing: 18) {
                     if let birth = person.birthDate {
-                        dateRow(title: "Born", value: birth.displayString, note: birthdayNote)
+                        dateRow(
+                            icon: "leaf.fill",
+                            tint: BanyanTheme.Color.positive,
+                            title: "Born",
+                            value: birth.displayString,
+                            age: bornAgeText,
+                            pill: birthdayPill
+                        )
                     }
                     if person.isDeceased {
-                        dateRow(title: "Passed away", value: deathDateValue, note: shraddhaNote)
+                        dateRow(
+                            icon: "flame.fill",
+                            tint: BanyanTheme.Color.warning,
+                            title: "Passed away",
+                            value: deathDateValue ?? "Not recorded",
+                            age: diedAgeText,
+                            pill: shraddhaPill
+                        )
                     }
                 }
+                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(BanyanTheme.Color.background)
+                .clipShape(.rect(cornerRadius: BanyanTheme.Radius.card))
             }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .listRowSeparator(.hidden)
         }
     }
 
-    private func dateRow(title: String, value: String?, note: String?) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(BanyanTheme.Color.textSecondary)
-                .frame(width: 96, alignment: .leading)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(value ?? "Not recorded")
-                    .font(.body)
-                    .foregroundStyle(BanyanTheme.Color.textPrimary)
-                if let note {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+    /// One date row: a tinted glyph in a soft circle, the label, the date + age on a
+    /// line, and an optional anniversary pill beneath.
+    private func dateRow(icon: String, tint: Color, title: String, value: String, age: String?, pill: String?) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.footnote)
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(tint.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(BanyanTheme.Color.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(value)
+                        .font(.body).fontWeight(.semibold)
+                        .foregroundStyle(BanyanTheme.Color.textPrimary)
+                    if let age {
+                        Text("· \(age)")
+                            .font(.subheadline)
+                            .foregroundStyle(BanyanTheme.Color.textSecondary)
+                    }
+                }
+                if let pill {
+                    Text(pill)
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(tint)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(tint.opacity(0.14))
+                        .clipShape(Capsule())
                 }
             }
             Spacer(minLength: 0)
@@ -510,19 +544,35 @@ struct PersonSheetView: View {
         return text == "Unknown" ? nil : text
     }
 
-    /// A living person's upcoming birthday, when the birth month + day are known.
-    private var birthdayNote: String? {
+    /// Years lived so far (living) or at death (deceased), shown beside the date.
+    private var bornAgeText: String? {
+        guard !person.isDeceased, let years = PersonAge.years(from: person.birthDate, to: nil) else { return nil }
+        return "\(years) yrs"
+    }
+    private var diedAgeText: String? {
+        guard person.isDeceased, let years = PersonAge.years(from: person.birthDate, to: person.deathDate) else { return nil }
+        return "aged \(years)"
+    }
+
+    /// The birthday pill — only when the next birthday is within the window (~3 months).
+    private var birthdayPill: String? {
         guard !person.isDeceased, let birth = person.birthDate,
-              let phrase = AnniversaryCountdown.phrase(for: birth) else { return nil }
+              let phrase = upcomingPhrase(for: birth) else { return nil }
         return "🎂 Birthday \(phrase)"
     }
 
-    /// A deceased person's upcoming death anniversary (shraddha), when the death
-    /// month + day are known.
-    private var shraddhaNote: String? {
+    /// The shraddha pill — only when the next death anniversary is within the window.
+    private var shraddhaPill: String? {
         guard person.isDeceased, let death = person.deathDate,
-              let phrase = AnniversaryCountdown.phrase(for: death) else { return nil }
+              let phrase = upcomingPhrase(for: death) else { return nil }
         return "🪔 Shraddha \(phrase)"
+    }
+
+    /// The countdown phrase, but only when the anniversary falls within the next ~3
+    /// months (92 days); otherwise nil so the date stands alone without a pill.
+    private func upcomingPhrase(for date: PartialDate) -> String? {
+        guard let days = AnniversaryCountdown.daysUntilNext(date), days <= 92 else { return nil }
+        return AnniversaryCountdown.phrase(for: date)
     }
 
     // MARK: - Derived text
