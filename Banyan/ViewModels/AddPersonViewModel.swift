@@ -44,24 +44,31 @@ final class AddPersonViewModel {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The birth date parsed from the year (required) plus the optional month and
-    /// day, or nil when the year is blank/invalid. Month/day stay unknown unless
-    /// entered; a day is only kept alongside a month (matching PartialDate).
+    /// The birth date from whatever the user entered. The year is NOT required — a
+    /// month/day with an unknown year (e.g. a known birthday) is preserved, since
+    /// PartialDate supports it. Nil only when nothing at all is known.
     var birthDate: PartialDate? {
-        guard let year = Int(birthYearText), year > 0 else { return nil }
-        let month = birthMonth.flatMap { (1...12).contains($0) ? $0 : nil }
-        let day = month == nil ? nil : Int(birthDayText).flatMap { (1...31).contains($0) ? $0 : nil }
-        return PartialDate(year: year, month: month, day: day)
+        Self.partialDate(yearText: birthYearText, month: birthMonth, dayText: birthDayText)
     }
 
-    /// The death date parsed from the year (required) plus optional month and day —
-    /// only when deceased. Month/day stay unknown unless entered; a day is only kept
-    /// alongside a month (matching PartialDate and the birth-date rule).
+    /// The death date from whatever the user entered — only when deceased. Like
+    /// birth, the year is NOT required, so a year-less shraddha date (month + day) is
+    /// kept rather than dropped. Nil when deceased with nothing entered (the separate
+    /// `isDeceased` flag still records the status).
     var deathDate: PartialDate? {
-        guard isDeceased, let year = Int(deathYearText), year > 0 else { return nil }
-        let month = deathMonth.flatMap { (1...12).contains($0) ? $0 : nil }
-        let day = month == nil ? nil : Int(deathDayText).flatMap { (1...31).contains($0) ? $0 : nil }
-        return PartialDate(year: year, month: month, day: day)
+        guard isDeceased else { return nil }
+        return Self.partialDate(yearText: deathYearText, month: deathMonth, dayText: deathDayText)
+    }
+
+    /// Builds a PartialDate from a year field, an optional month, and a day field.
+    /// A day is only kept alongside a valid month (matching PartialDate). Returns nil
+    /// only when neither a year nor a month is known.
+    private static func partialDate(yearText: String, month: Int?, dayText: String) -> PartialDate? {
+        let year = Int(yearText).flatMap { $0 > 0 ? $0 : nil }
+        let validMonth = month.flatMap { (1...12).contains($0) ? $0 : nil }
+        let day = validMonth == nil ? nil : Int(dayText).flatMap { (1...31).contains($0) ? $0 : nil }
+        guard year != nil || validMonth != nil else { return nil }
+        return PartialDate(year: year, month: validMonth, day: day)
     }
 
     /// The name as it will be saved, for the review card.

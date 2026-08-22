@@ -28,20 +28,23 @@ final class PersonEditViewModel {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The birth year plus optional month and day parsed into a PartialDate, or nil
-    /// when the year is blank/invalid. A day is only kept alongside a valid month.
+    /// The birth date from whatever's entered. The year is NOT required — a month/day
+    /// with an unknown year is preserved. A day is only kept alongside a valid month.
+    /// Nil only when neither a year nor a month is known.
     var birthDate: PartialDate? {
-        guard let year = Int(birthYearText), year > 0 else { return nil }
-        return PartialDate(year: year, month: Self.month(birthMonthText), day: Self.day(birthDayText, month: birthMonthText))
+        let year = Int(birthYearText).flatMap { $0 > 0 ? $0 : nil }
+        let month = Self.month(birthMonthText)
+        guard year != nil || month != nil else { return nil }
+        return PartialDate(year: year, month: month, day: Self.day(birthDayText, month: birthMonthText))
     }
 
     /// A deceased person keeps a non-nil deathDate even with an unknown year, so
-    /// `Person.isDeceased` (derived from `deathDate != nil`) survives the round-trip.
-    /// This mirrors the decision made in step 4 for the add flow. Month/day (for
-    /// shraddha) are kept when present, a day only alongside a valid month.
+    /// `Person.isDeceased` (derived from `deathDate != nil`) survives the round-trip —
+    /// but now with whatever year/month/day was entered, so a year-less shraddha date
+    /// is kept rather than dropped to an empty PartialDate.
     var deathDate: PartialDate? {
         guard isDeceased else { return nil }
-        guard let year = Int(deathYearText), year > 0 else { return PartialDate() }
+        let year = Int(deathYearText).flatMap { $0 > 0 ? $0 : nil }
         return PartialDate(year: year, month: Self.month(deathMonthText), day: Self.day(deathDayText, month: deathMonthText))
     }
 

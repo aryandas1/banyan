@@ -33,6 +33,46 @@ struct PersonEditViewModelTests {
         #expect(vm.bio == "A gardener.")
     }
 
+    @Test func deathDateKeepsMonthDayWithoutYear() throws {
+        // Given a deceased person edited with a shraddha date but an unknown year
+        let person = Person(treeId: UUID(), firstName: "Bapa")
+        let vm = PersonEditViewModel(person: person)
+        vm.isDeceased = true
+        vm.deathYearText = ""
+        vm.deathMonthText = "4"
+        vm.deathDayText = "16"
+
+        // Then the month + day are preserved (not dropped for the missing year)
+        let death = try #require(vm.deathDate)
+        #expect(death.year == nil)
+        #expect(death.month == 4)
+        #expect(death.day == 16)
+    }
+
+    @Test func birthDateKeepsMonthDayWithoutYear() throws {
+        let person = Person(treeId: UUID(), firstName: "Bapa")
+        let vm = PersonEditViewModel(person: person)
+        vm.birthYearText = ""
+        vm.birthMonthText = "11"
+        vm.birthDayText = "29"
+
+        let birth = try #require(vm.birthDate)
+        #expect(birth.year == nil)
+        #expect(birth.month == 11)
+        #expect(birth.day == 29)
+    }
+
+    @Test func deceasedWithNothingStillMarksDeceased() throws {
+        // A deceased person with no date at all keeps a non-nil (empty) deathDate so
+        // Person.isDeceased (deathDate != nil) survives the round-trip.
+        let person = Person(treeId: UUID(), firstName: "Bapa")
+        let vm = PersonEditViewModel(person: person)
+        vm.isDeceased = true
+
+        let death = try #require(vm.deathDate)
+        #expect(death.year == nil && death.month == nil && death.day == nil)
+    }
+
     @Test func canSaveIsFalseWhenFirstNameBlank() throws {
         // Given an edit form
         let person = Person(treeId: UUID(), firstName: "Ravi")

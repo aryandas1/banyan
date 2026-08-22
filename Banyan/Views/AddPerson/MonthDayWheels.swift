@@ -27,9 +27,11 @@ struct MonthDayWheels: View {
 
             Divider().frame(height: 140)
 
+            // The day range follows the chosen month, so an impossible date (31 Feb,
+            // 31 Apr) can't be picked. The year is unknown here, so February allows 29.
             wheel(title: "Day", selection: $day, disabled: month == 0) {
                 Text("—").tag(0)
-                ForEach(1...31, id: \.self) { d in
+                ForEach(1...maxDay, id: \.self) { d in
                     Text("\(d)").tag(d)
                 }
             }
@@ -40,6 +42,22 @@ struct MonthDayWheels: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(BanyanTheme.Color.border, lineWidth: 1)
         )
+        // Switching to a shorter month drops a now-invalid day (e.g. 31 → clears when
+        // the month becomes April), so the picker never holds a value outside its range.
+        .onChange(of: month) { _, _ in
+            if day > maxDay { day = 0 }
+        }
+    }
+
+    /// The highest valid day for the chosen month (31 when no month is set, since the
+    /// day wheel is disabled then). February allows 29 — the year, and so leapness, is
+    /// unknown at this step.
+    private var maxDay: Int {
+        switch month {
+        case 2: return 29
+        case 4, 6, 9, 11: return 30
+        default: return 31
+        }
     }
 
     @ViewBuilder

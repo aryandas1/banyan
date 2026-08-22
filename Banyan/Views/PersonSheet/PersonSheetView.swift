@@ -148,8 +148,11 @@ struct PersonSheetView: View {
         }
         .photosPicker(isPresented: $showProfilePicker, selection: $profilePickerItem, matching: .images)
         .onChange(of: profilePickerItem) { _, item in loadPickedProfileImage(item) }
-        // Freshly picked photo → frame it, then save as the profile photo.
-        .sheet(item: $pickedProfileImage, onDismiss: { sheetVM.refresh() }) { picked in
+        // Freshly picked photo → frame it, then save as the profile photo. No
+        // onDismiss refresh here: saveNewProfilePhoto's async Task refreshes once the
+        // save actually lands, so a synchronous dismiss-time refresh would just race
+        // it and briefly read pre-save state.
+        .sheet(item: $pickedProfileImage) { picked in
             AvatarFramingView(image: picked.image, confirmLabel: "Use Photo") { crop, _ in
                 saveNewProfilePhoto(picked, crop: crop)
             }
