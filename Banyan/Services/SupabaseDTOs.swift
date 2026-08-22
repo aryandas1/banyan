@@ -176,7 +176,7 @@ struct InvitationDTO: Codable, Identifiable, Equatable {
 /// `profiles` row under the current RLS (`profiles` SELECT is scoped to
 /// `auth.uid() = id`, verified against the live DB), and there is no FK to embed
 /// it through either. Labels therefore fall back to "Family member" until either
-/// profiles RLS is broadened for co-members or `display_name` is denormalised
+/// profiles RLS is broadened for co-members or `display_name` is denormalized
 /// onto `tree_members`. `invitationPhoneNumber` is likewise unfilled: there is no
 /// `accepted_by` link from an invitation to the member who accepted it, so a
 /// per-viewer phone label isn't derivable without a schema change.

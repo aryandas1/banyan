@@ -145,6 +145,43 @@ struct PhotoActionsViewModelTests {
         #expect(mock.upserts.isEmpty)   // launch upload will carry current metadata
     }
 
+    // MARK: - Set crop
+
+    @Test func setCropWritesClampedFramingLocallyWithNoRemoteSync() async throws {
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let a = addPhoto(to: person, in: builder.context, filename: "a.jpg", uploaded: true)
+        let mock = MockPhotoSyncService()
+        let vm = PhotoActionsViewModel(photoSync: mock)
+
+        // square photo, scale 2 → maxOffset 0.5, so the over-pan clamps.
+        vm.setCrop(AvatarCrop(scale: 2, offsetX: 5, offsetY: -0.1), aspectRatio: 1, on: a, in: builder.context)
+        await vm.awaitPendingSync()
+
+        // local: clamped framing persisted
+        #expect(a.cropScale == 2)
+        #expect(a.cropOffsetX == 0.5)
+        #expect(a.cropOffsetY == -0.1)
+        // crop is local-only for the pilot — never touches the remote, even uploaded
+        #expect(mock.upserts.isEmpty)
+        #expect(mock.deletes.isEmpty)
+    }
+
+    @Test func setCropAllowsPortraitVerticalReframeAtScaleOne() async throws {
+        let builder = try TestTreeBuilder()
+        let person = builder.makePerson(firstName: "Ravi")
+        let a = addPhoto(to: person, in: builder.context, filename: "a.jpg", uploaded: false)
+        let vm = PhotoActionsViewModel(photoSync: nil)
+
+        // A tall portrait (aspectRatio 0.5) can be panned vertically at 1× to move a
+        // face into the circle — the square-only clamp used to pin this to 0.
+        vm.setCrop(AvatarCrop(scale: 1, offsetX: 0, offsetY: 0.3), aspectRatio: 0.5, on: a, in: builder.context)
+        await vm.awaitPendingSync()
+
+        #expect(a.cropScale == 1)
+        #expect(a.cropOffsetY == 0.3)
+    }
+
     @Test func nilServiceMutatesLocallyWithoutCrashing() async throws {
         let builder = try TestTreeBuilder()
         let person = builder.makePerson(firstName: "Ravi")

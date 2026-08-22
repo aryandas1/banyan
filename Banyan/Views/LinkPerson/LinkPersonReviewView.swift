@@ -25,10 +25,8 @@ struct LinkPersonReviewView: View {
                 onSave()
             } label: {
                 Text("Save")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
 
             Button("Change something") {
                 onChangeSomething()
@@ -38,6 +36,8 @@ struct LinkPersonReviewView: View {
             .frame(maxWidth: .infinity, minHeight: 44)
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
     }
 
     private var summaryCard: some View {
@@ -47,7 +47,11 @@ struct LinkPersonReviewView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
+                    .fill(BanyanTheme.Color.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(BanyanTheme.Color.border, lineWidth: 1)
             )
     }
 

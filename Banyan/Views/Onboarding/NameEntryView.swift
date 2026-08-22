@@ -26,7 +26,7 @@ struct NameEntryView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(BanyanTheme.Color.textPrimary)
 
-                Text("You'll be the centre of your tree.")
+                Text("You'll be the center of your tree.")
                     .font(.subheadline)
                     .foregroundStyle(BanyanTheme.Color.textSecondary)
             }
@@ -38,15 +38,8 @@ struct NameEntryView: View {
                 TextField("First name", text: $vm.firstName)
                     .font(.body)
                     .textContentType(.givenName)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: BanyanTheme.Radius.input)
-                            .stroke(
-                                firstNameFocused ? BanyanTheme.Color.primary : BanyanTheme.Color.border,
-                                lineWidth: 2
-                            )
-                    )
                     .focused($firstNameFocused)
+                    .banyanTextInput(focused: firstNameFocused)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -56,15 +49,8 @@ struct NameEntryView: View {
                 TextField("Last name (optional)", text: $vm.lastName)
                     .font(.body)
                     .textContentType(.familyName)
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: BanyanTheme.Radius.input)
-                            .stroke(
-                                lastNameFocused ? BanyanTheme.Color.primary : BanyanTheme.Color.border,
-                                lineWidth: 2
-                            )
-                    )
                     .focused($lastNameFocused)
+                    .banyanTextInput(focused: lastNameFocused)
             }
 
             Spacer()
@@ -73,17 +59,8 @@ struct NameEntryView: View {
                 continueTapped()
             } label: {
                 Text("Continue")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
-                    .background(
-                        vm.canContinue && !vm.isSaving
-                            ? BanyanTheme.Color.primary
-                            : BanyanTheme.Color.textTertiary
-                    )
-                    .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinue || vm.isSaving)
         }
         .padding()

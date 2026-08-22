@@ -15,6 +15,7 @@ struct InviteView: View {
     @State private var showShareSheet = false
     @State private var inviteToken: String?
     @State private var errorMessage: String?
+    @FocusState private var phoneFocused: Bool
 
     private var canSend: Bool {
         !phoneNumber.trimmingCharacters(in: .whitespaces).isEmpty
@@ -30,16 +31,14 @@ struct InviteView: View {
                     TextField("e.g. +91 98765 43210", text: $phoneNumber)
                         .keyboardType(.phonePad)
                         .font(.title3)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(.rect(cornerRadius: 12))
-                        .frame(minHeight: 56)
+                        .focused($phoneFocused)
+                        .banyanTextInput(focused: phoneFocused)
                 }
                 .padding(.horizontal)
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(BanyanTheme.Color.warning)
                         .font(.footnote)
                         .padding(.horizontal)
                 }
@@ -57,18 +56,19 @@ struct InviteView: View {
                     Group {
                         if viewModel.isCreatingInvite {
                             ProgressView()
+                                .tint(.white)
                         } else {
                             Text("Create invite link")
-                                .font(.body.bold())
                         }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 56)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PrimaryFilledButtonStyle())
                 .disabled(!canSend || viewModel.isCreatingInvite)
                 .padding(.horizontal)
                 .padding(.bottom, 32)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(BanyanTheme.Color.background.ignoresSafeArea())
             .navigationTitle("Who would you like to invite?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

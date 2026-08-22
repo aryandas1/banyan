@@ -10,7 +10,7 @@ import SwiftData
 final class PersonPhoto {
     var id: UUID
     var treeId: UUID
-    /// Denormalised owner id — kept for the step-14 Supabase queries, so a photo
+    /// Denormalized owner id — kept for the step-14 Supabase queries, so a photo
     /// row can be matched to its person without a join.
     var personId: UUID
     /// Local file in the app's documents directory — filename only, not a path.
@@ -24,6 +24,15 @@ final class PersonPhoto {
     var isProfilePhoto: Bool
     var sortOrder: Int
     var createdAt: Date
+
+    /// How the round avatar frames this photo (the full photo in the gallery is
+    /// never altered). `1 / 0 / 0` = no crop — the image fills the circle. Offsets
+    /// are fractions of the circle's diameter; see `AvatarCrop`. Local-only for the
+    /// pilot: not carried on `PersonPhotoDTO`, so viewers see the uncropped avatar
+    /// and an owner reinstall loses the framing (development-plan §0.9 follow-up).
+    var cropScale: Double
+    var cropOffsetX: Double
+    var cropOffsetY: Double
 
     /// Back-reference to the owning person. Optional so a cascade delete of the
     /// person doesn't crash while SwiftData tears the relationship down.
@@ -41,7 +50,10 @@ final class PersonPhoto {
         takenPlace: String? = nil,
         isProfilePhoto: Bool = false,
         sortOrder: Int = 0,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        cropScale: Double = 1,
+        cropOffsetX: Double = 0,
+        cropOffsetY: Double = 0
     ) {
         self.id = id
         self.treeId = treeId
@@ -55,6 +67,9 @@ final class PersonPhoto {
         self.isProfilePhoto = isProfilePhoto
         self.sortOrder = sortOrder
         self.createdAt = createdAt
+        self.cropScale = cropScale
+        self.cropOffsetX = cropOffsetX
+        self.cropOffsetY = cropOffsetY
         self.person = nil
     }
 

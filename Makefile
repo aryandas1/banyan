@@ -3,7 +3,7 @@
 # so most targets depend on `generate`.
 
 SCHEME    := Banyan
-BUNDLE_ID := com.aryandas.Banyan
+BUNDLE_ID := com.aryandas.banyan
 SIM       := iPhone 17
 DEST      := platform=iOS Simulator,name=$(SIM)
 PROJECT   := Banyan.xcodeproj

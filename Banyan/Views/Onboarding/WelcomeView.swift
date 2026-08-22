@@ -45,13 +45,8 @@ struct WelcomeView: View {
                         NameEntryView()
                     } label: {
                         Text("Get started")
-                            .font(.headline)
-                            .foregroundStyle(BanyanTheme.Color.primary)
-                            .frame(maxWidth: .infinity, minHeight: BanyanTheme.TapTarget.button)
-                            .background(.white)
-                            .clipShape(.rect(cornerRadius: BanyanTheme.Radius.button))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(InvertedFilledButtonStyle())
 
                     Spacer()
                 }

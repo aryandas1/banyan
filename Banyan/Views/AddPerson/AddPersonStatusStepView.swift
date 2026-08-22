@@ -8,6 +8,13 @@ struct AddPersonStatusStepView: View {
     @Bindable var vm: AddPersonViewModel
     let onContinue: () -> Void
 
+    // 0 = not selected; 1–12 = month; 1–31 = day. Local state synced to the VM via
+    // .onChange, so the VM's interface (deathMonth: Int?, deathDayText: String) is
+    // unchanged — mirrors the birth step.
+    @State private var selectedDeathMonth: Int = 0
+    @State private var selectedDeathDay: Int = 0
+    @FocusState private var deathYearFocused: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Are they still with us?")
@@ -26,7 +33,11 @@ struct AddPersonStatusStepView: View {
                 TextField("Year they passed, e.g. 1998", text: $vm.deathYearText)
                     .font(.title2)
                     .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
+                    .focused($deathYearFocused)
+                    .banyanTextInput(focused: deathYearFocused)
+
+                // Exact month/day, optional — but they matter for shraddha.
+                MonthDayWheels(month: $selectedDeathMonth, day: $selectedDeathDay)
             }
 
             Spacer()
@@ -35,12 +46,36 @@ struct AddPersonStatusStepView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        .toolbar {
+            // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { deathYearFocused = false }
+            }
+        }
+        .onAppear {
+            // Restore the pickers if the user navigated back to this step.
+            selectedDeathMonth = vm.deathMonth ?? 0
+            selectedDeathDay = Int(vm.deathDayText) ?? 0
+        }
+        .onChange(of: selectedDeathMonth) { _, newMonth in
+            deathYearFocused = false
+            vm.deathMonth = newMonth == 0 ? nil : newMonth
+            // Clearing the month clears the day too — a day alone is meaningless.
+            if newMonth == 0 {
+                selectedDeathDay = 0
+                vm.deathDayText = ""
+            }
+        }
+        .onChange(of: selectedDeathDay) { _, newDay in
+            vm.deathDayText = newDay == 0 ? "" : "\(newDay)"
+        }
     }
 
     /// One full-width selectable card with a trailing checkmark when selected.
@@ -62,11 +97,11 @@ struct AddPersonStatusStepView: View {
             .frame(maxWidth: .infinity, minHeight: 56)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.accentColor.opacity(0.1) : Color(.systemGray6))
+                    .fill(isSelected ? BanyanTheme.Color.primaryTint : BanyanTheme.Color.surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    .stroke(isSelected ? BanyanTheme.Color.primary : BanyanTheme.Color.border, lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)

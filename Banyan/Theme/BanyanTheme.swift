@@ -31,8 +31,9 @@ enum BanyanTheme {
         static let textPrimary    = SwiftUI.Color(hex: "#1A1814")
         /// Secondary text — warm gray
         static let textSecondary  = SwiftUI.Color(hex: "#6B6058")
-        /// Tertiary / captions / muted labels
-        static let textTertiary   = SwiftUI.Color(hex: "#A09890")
+        /// Tertiary / captions / muted labels. Darkened from #A09890 to pass WCAG AA
+        /// (~5.3:1 on white) — the birth-year line and list chevrons use it.
+        static let textTertiary   = SwiftUI.Color(hex: "#736A62")
         /// Tab bar, sheet drag handle
         static let chrome         = SwiftUI.Color(hex: "#E5E0D8")
         /// Reassuring green — a successful cloud save ("Saved").

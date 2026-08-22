@@ -79,7 +79,7 @@ enum UITestSupport {
 
     /// Builds an in-memory container seeded with a tiny tree (root + partner + one
     /// child) and writes the viewer UserDefaults so ContentView routes to a
-    /// read-only MainTabView centred on the root.
+    /// read-only MainTabView centered on the root.
     static func makeSeededViewerContainer() -> ModelContainer {
         // Become a pure viewer: drop any owner identity, mark this tree as viewed.
         UserDefaults.standard.removeObject(forKey: "ownerPersonId")

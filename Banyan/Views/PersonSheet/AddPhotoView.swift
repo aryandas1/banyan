@@ -90,15 +90,15 @@ struct AddPhotoView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemGray6))
+                        .fill(BanyanTheme.Color.primaryTint)
                         .frame(height: 200)
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus")
                             .font(.system(size: placeholderIconSize))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BanyanTheme.Color.primary)
                         Text("Tap to choose a photo")
                             .font(.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BanyanTheme.Color.primary)
                     }
                 }
             }
@@ -152,8 +152,12 @@ struct AddPhotoView: View {
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemBackground))
+        .background(BanyanTheme.Color.background)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(BanyanTheme.Color.border, lineWidth: 1)
+        )
     }
 
     @ViewBuilder

@@ -2,7 +2,7 @@
 // Test double for the viewer-side invite flow: an in-memory
 // InviteAcceptanceServiceProtocol that records calls and can be primed with a
 // tree id, a snapshot, or an error — so InviteAcceptanceViewModel tests assert
-// real behaviour without networking.
+// real behavior without networking.
 
 import Foundation
 @testable import Banyan

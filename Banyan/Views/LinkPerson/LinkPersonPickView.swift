@@ -37,8 +37,10 @@ struct LinkPersonPickView: View {
                     }
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
+        .background(BanyanTheme.Color.background)
         .searchable(text: $query, prompt: "Search by name")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -49,12 +51,13 @@ struct LinkPersonPickView: View {
         } label: {
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color(.systemGray5))
+                    .fill(BanyanTheme.avatarColor(for: person.id))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(person.initials)
                             .font(.callout)
                             .fontWeight(.semibold)
+                            .foregroundStyle(.white)
                     )
                 Text(person.fullName)
                     .font(.body)

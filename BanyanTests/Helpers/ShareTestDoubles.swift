@@ -1,7 +1,7 @@
 // ShareTestDoubles.swift
 // Test double for the sharing layer: an in-memory ShareServiceProtocol that
 // records calls (args + counts) and can be primed with responses or an error,
-// so ShareViewModel tests can assert real refresh behaviour rather than imply it.
+// so ShareViewModel tests can assert real refresh behavior rather than imply it.
 
 import Foundation
 @testable import Banyan

@@ -17,6 +17,7 @@ struct PhotoDetailView: View {
 
     @State private var showDeleteConfirmation = false
     @State private var showEditMetadata = false
+    @State private var showCrop = false
 
     private var current: PersonPhoto { photos[currentIndex] }
 
@@ -49,7 +50,9 @@ struct PhotoDetailView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button("Edit details") { showEditMetadata = true }
-                            if !current.isProfilePhoto {
+                            if current.isProfilePhoto {
+                                Button("Adjust framing") { showCrop = true }
+                            } else {
                                 Button("Set as profile photo") { setAsProfile() }
                             }
                             Divider()
@@ -80,6 +83,9 @@ struct PhotoDetailView: View {
         }
         .sheet(isPresented: $showEditMetadata) {
             EditPhotoMetadataView(photo: current)
+        }
+        .sheet(isPresented: $showCrop) {
+            ProfilePhotoCropView(photo: current)
         }
     }
 

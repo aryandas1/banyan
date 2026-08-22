@@ -156,7 +156,7 @@ struct RelationshipLabelTests {
         let stepParent = addPartner(of: father, in: builder)  // father's partner, not owner's parent
 
         let label = RelationshipLabel.label(from: owner, to: stepParent, using: graphService)
-        #expect(label == "Parent's partner")
+        #expect(label == "Step-parent")
     }
 
     @Test func partnersChildLabel() throws {
@@ -167,12 +167,12 @@ struct RelationshipLabelTests {
         let stepChild = addChild(of: partner, sex: .unknown, in: builder)  // partner's child, not owner's
 
         let label = RelationshipLabel.label(from: owner, to: stepChild, using: graphService)
-        #expect(label == "Partner's child")
+        #expect(label == "Step-child")
     }
 
-    // MARK: - Depth 3 (always concatenated)
+    // MARK: - Great-grandparents / great-grandchildren
 
-    @Test func depthThreeConcatenatesLabel() throws {
+    @Test func greatGrandparentLabel() throws {
         let builder = try TestTreeBuilder()
         let tree = UUID()
         let owner = builder.makePerson(firstName: "Owner", treeId: tree)
@@ -181,7 +181,31 @@ struct RelationshipLabelTests {
         let greatGrandparent = addParent(of: grandmother, sex: .unknown, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: greatGrandparent, using: graphService)
-        #expect(label == "Father's mother's parent")
+        #expect(label == "Great-grandparent")
+    }
+
+    @Test func greatGrandmotherLabel() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let father = addParent(of: owner, sex: .male, in: builder)
+        let grandfather = addParent(of: father, sex: .male, in: builder)
+        let greatGrandmother = addParent(of: grandfather, sex: .female, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: greatGrandmother, using: graphService)
+        #expect(label == "Great-grandmother")
+    }
+
+    @Test func greatGrandchildLabel() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let child = addChild(of: owner, sex: .unknown, in: builder)
+        let grandchild = addChild(of: child, sex: .unknown, in: builder)
+        let greatGrandchild = addChild(of: grandchild, sex: .male, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: greatGrandchild, using: graphService)
+        #expect(label == "Great-grandson")
     }
 
     // MARK: - Depth 3 — aunt/uncle & niece/nephew
@@ -207,7 +231,7 @@ struct RelationshipLabelTests {
         let aunt = addChild(of: grandparent, sex: .female, in: builder)  // parent's sister
 
         let label = RelationshipLabel.label(from: owner, to: aunt, using: graphService)
-        #expect(label == "Aunt")
+        #expect(label == "Aunty")
     }
 
     @Test func auntOrUncleLabelWhenSexUnknown() throws {
@@ -219,7 +243,7 @@ struct RelationshipLabelTests {
         let pibling = addChild(of: grandparent, sex: .unknown, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: pibling, using: graphService)
-        #expect(label == "Aunt or uncle")
+        #expect(label == "Uncle or aunty")
     }
 
     @Test func nephewLabel() throws {
@@ -258,22 +282,22 @@ struct RelationshipLabelTests {
         #expect(label == "Niece or nephew")
     }
 
-    // MARK: - Depth 4 — cousins
+    // MARK: - Cousins (relational: collapsed by generation, degree ignored)
 
-    @Test func cousinLabel() throws {
+    @Test func cousinSisterLabel() throws {
         let builder = try TestTreeBuilder()
         let tree = UUID()
         let owner = builder.makePerson(firstName: "Owner", treeId: tree)
         let parent = addParent(of: owner, in: builder)
         let grandparent = addParent(of: parent, in: builder)
         let uncle = addChild(of: grandparent, sex: .male, in: builder)  // parent's sibling
-        let cousin = addChild(of: uncle, sex: .female, in: builder)     // cousin — gender-neutral label
+        let cousin = addChild(of: uncle, sex: .female, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: cousin, using: graphService)
-        #expect(label == "Cousin")
+        #expect(label == "Cousin-sister")
     }
 
-    @Test func cousinLabelIsGenderNeutral() throws {
+    @Test func cousinBrotherLabel() throws {
         let builder = try TestTreeBuilder()
         let tree = UUID()
         let owner = builder.makePerson(firstName: "Owner", treeId: tree)
@@ -283,12 +307,46 @@ struct RelationshipLabelTests {
         let cousin = addChild(of: aunt, sex: .male, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: cousin, using: graphService)
+        #expect(label == "Cousin-brother")
+    }
+
+    /// Second cousins share a great-grandparent; relational style still says "Cousin".
+    @Test func secondCousinIsCousin() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        // Owner's branch: up three to the shared great-grandparent.
+        let parent = addParent(of: owner, in: builder)
+        let grandparent = addParent(of: parent, in: builder)
+        let greatGrandparent = addParent(of: grandparent, in: builder)
+        // Other branch back down three: great-grandparent → grandUncle → firstCousinOnceRemoved → secondCousin.
+        let grandUncle = addChild(of: greatGrandparent, in: builder)
+        let removed = addChild(of: grandUncle, in: builder)
+        let secondCousin = addChild(of: removed, sex: .unknown, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: secondCousin, using: graphService)
         #expect(label == "Cousin")
+    }
+
+    /// A parent's cousin is an older generation across → "Uncle" (first cousin once
+    /// removed, upward). This is the core relational case from the pilot feedback.
+    @Test func parentsCousinIsUncle() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let parent = addParent(of: owner, in: builder)
+        let grandparent = addParent(of: parent, in: builder)
+        let greatGrandparent = addParent(of: grandparent, in: builder)
+        let grandUncle = addChild(of: greatGrandparent, in: builder)
+        let parentsCousin = addChild(of: grandUncle, sex: .male, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: parentsCousin, using: graphService)
+        #expect(label == "Uncle")
     }
 
     // MARK: - End-to-end via TreeMutationService (matches how the app builds relations)
 
-    @Test func uncleViaMutationServiceIsLabelled() throws {
+    @Test func uncleViaMutationServiceIsLabeled() throws {
         let builder = try TestTreeBuilder()
         let service = TreeMutationService()
         let tree = UUID()
@@ -302,7 +360,7 @@ struct RelationshipLabelTests {
         #expect(label == "Uncle")
     }
 
-    @Test func cousinViaMutationServiceIsLabelled() throws {
+    @Test func cousinViaMutationServiceIsLabeled() throws {
         let builder = try TestTreeBuilder()
         let service = TreeMutationService()
         let tree = UUID()
@@ -316,7 +374,7 @@ struct RelationshipLabelTests {
         #expect(label == "Cousin")
     }
 
-    @Test func siblingInParentlessGroupIsLabelled() throws {
+    @Test func siblingInParentlessGroupIsLabeled() throws {
         // Given a sibling added to a person who has no recorded parents
         // (a partnerless sibling-group union — only creatable via addSibling)
         let builder = try TestTreeBuilder()
@@ -332,18 +390,107 @@ struct RelationshipLabelTests {
 
     // MARK: - Bounds & cycles
 
-    @Test func extendedFamilyLabel() throws {
+    @Test func greatGreatGrandparentLabel() throws {
         let builder = try TestTreeBuilder()
         let tree = UUID()
         let owner = builder.makePerson(firstName: "Owner", treeId: tree)
-        // A five-generation chain: the top person is four hops up, beyond the depth-3 cap.
+        // Four generations up is now named rather than dropped to "Extended family".
         let p1 = addParent(of: owner, in: builder)
         let p2 = addParent(of: p1, in: builder)
         let p3 = addParent(of: p2, in: builder)
         let p4 = addParent(of: p3, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: p4, using: graphService)
+        #expect(label == "Great-great-grandparent")
+    }
+
+    @Test func unconnectedPersonIsExtendedFamily() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        // Someone in the tree with no path to the owner — no blood, no in-law.
+        let stranger = builder.makePerson(firstName: "Stranger", treeId: tree)
+
+        let label = RelationshipLabel.label(from: owner, to: stranger, using: graphService)
         #expect(label == "Extended family")
+    }
+
+    // MARK: - In-laws
+
+    @Test func husbandLabel() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let partner = addPartner(of: owner, in: builder)
+        partner.sex = .male
+
+        let label = RelationshipLabel.label(from: owner, to: partner, using: graphService)
+        #expect(label == "Husband")
+    }
+
+    @Test func spousesParentIsMotherInLaw() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let spouse = addPartner(of: owner, in: builder)
+        let motherInLaw = addParent(of: spouse, sex: .female, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: motherInLaw, using: graphService)
+        #expect(label == "Mother-in-law")
+    }
+
+    @Test func spousesSiblingIsBrotherInLaw() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let spouse = addPartner(of: owner, in: builder)
+        let sharedParent = addParent(of: spouse, in: builder)
+        let spousesBrother = addChild(of: sharedParent, sex: .male, in: builder)
+
+        let label = RelationshipLabel.label(from: owner, to: spousesBrother, using: graphService)
+        #expect(label == "Brother-in-law")
+    }
+
+    @Test func siblingsSpouseIsSisterInLaw() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let parent = addParent(of: owner, in: builder)
+        let sibling = addChild(of: parent, sex: .male, in: builder)
+        let siblingsWife = addPartner(of: sibling, in: builder)
+        siblingsWife.sex = .female
+
+        let label = RelationshipLabel.label(from: owner, to: siblingsWife, using: graphService)
+        #expect(label == "Sister-in-law")
+    }
+
+    @Test func childsSpouseIsDaughterInLaw() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let child = addChild(of: owner, in: builder)
+        let childsWife = addPartner(of: child, in: builder)
+        childsWife.sex = .female
+
+        let label = RelationshipLabel.label(from: owner, to: childsWife, using: graphService)
+        #expect(label == "Daughter-in-law")
+    }
+
+    /// The marquee pilot case: "my dad's cousin's husband is my uncle."
+    @Test func parentsCousinsHusbandIsUncle() throws {
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let parent = addParent(of: owner, in: builder)
+        let grandparent = addParent(of: parent, in: builder)
+        let greatGrandparent = addParent(of: grandparent, in: builder)
+        let grandUncle = addChild(of: greatGrandparent, in: builder)
+        let parentsCousin = addChild(of: grandUncle, sex: .female, in: builder)  // dad's cousin-sister
+        let herHusband = addPartner(of: parentsCousin, in: builder)
+        herHusband.sex = .male
+
+        let label = RelationshipLabel.label(from: owner, to: herHusband, using: graphService)
+        #expect(label == "Uncle")
     }
 
     @Test func noBfsLoopOnCrossBranch() throws {

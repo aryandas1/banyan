@@ -18,9 +18,17 @@ final class AddPersonViewModel {
 
     var firstName: String = ""
     var lastName: String = ""
+    var sex: Sex = .unknown
     var birthYearText: String = ""
+    /// Optional birth month (1–12); nil when unknown. A day is only kept if a month is set.
+    var birthMonth: Int? = nil
+    var birthDayText: String = ""
     var isDeceased: Bool = false
     var deathYearText: String = ""
+    /// Optional death month (1–12); nil when unknown. A day is only kept if a month
+    /// is set. Exact death dates matter for Hindu shraddha observances.
+    var deathMonth: Int? = nil
+    var deathDayText: String = ""
     private(set) var isSaving: Bool = false
     var saveError: Error? = nil
 
@@ -36,16 +44,31 @@ final class AddPersonViewModel {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The birth year parsed into a year-only PartialDate, or nil when blank/invalid.
+    /// The birth date from whatever the user entered. The year is NOT required — a
+    /// month/day with an unknown year (e.g. a known birthday) is preserved, since
+    /// PartialDate supports it. Nil only when nothing at all is known.
     var birthDate: PartialDate? {
-        guard let year = Int(birthYearText), year > 0 else { return nil }
-        return PartialDate(year: year)
+        Self.partialDate(yearText: birthYearText, month: birthMonth, dayText: birthDayText)
     }
 
-    /// The death year parsed into a year-only PartialDate — only when deceased.
+    /// The death date from whatever the user entered — only when deceased. Like
+    /// birth, the year is NOT required, so a year-less shraddha date (month + day) is
+    /// kept rather than dropped. Nil when deceased with nothing entered (the separate
+    /// `isDeceased` flag still records the status).
     var deathDate: PartialDate? {
-        guard isDeceased, let year = Int(deathYearText), year > 0 else { return nil }
-        return PartialDate(year: year)
+        guard isDeceased else { return nil }
+        return Self.partialDate(yearText: deathYearText, month: deathMonth, dayText: deathDayText)
+    }
+
+    /// Builds a PartialDate from a year field, an optional month, and a day field.
+    /// A day is only kept alongside a valid month (matching PartialDate). Returns nil
+    /// only when neither a year nor a month is known.
+    private static func partialDate(yearText: String, month: Int?, dayText: String) -> PartialDate? {
+        let year = Int(yearText).flatMap { $0 > 0 ? $0 : nil }
+        let validMonth = month.flatMap { (1...12).contains($0) ? $0 : nil }
+        let day = validMonth == nil ? nil : Int(dayText).flatMap { (1...31).contains($0) ? $0 : nil }
+        guard year != nil || validMonth != nil else { return nil }
+        return PartialDate(year: year, month: validMonth, day: day)
     }
 
     /// The name as it will be saved, for the review card.
@@ -56,17 +79,27 @@ final class AddPersonViewModel {
             .joined(separator: " ")
     }
 
-    /// The birth line on the review card.
+    /// The birth line on the review card — shows whatever of year/month/day is known.
     var birthDescription: String {
-        guard let year = birthDate?.year else { return "Birth year unknown" }
-        return "Born \(year)"
+        guard let birthDate else { return "Birth date unknown" }
+        return "Born \(birthDate.displayString)"
     }
 
-    /// The living/deceased line on the review card.
+    /// The gender line on the review card.
+    var genderDescription: String {
+        switch sex {
+        case .male:    return "Male"
+        case .female:  return "Female"
+        case .unknown: return "Gender not set"
+        }
+    }
+
+    /// The living/deceased line on the review card — shows the full death date
+    /// (day/month/year as known), so an exact shraddha date is confirmed before save.
     var statusDescription: String {
         guard isDeceased else { return "Living" }
-        guard let year = deathDate?.year else { return "Passed away" }
-        return "Passed away in \(year)"
+        guard let deathDate else { return "Passed away" }
+        return "Passed away \(deathDate.displayString)"
     }
 
     /// The union whose children a new partner would co-parent if the user says so —
@@ -118,13 +151,13 @@ final class AddPersonViewModel {
         switch context {
         case .parent:
             try mutationService.addParent(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
         case .partner:
             try mutationService.addPartner(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate,
                 // Only co-parent when the question actually applied AND the user said yes.
@@ -133,13 +166,13 @@ final class AddPersonViewModel {
             )
         case .child:
             try mutationService.addChild(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )
         case .sibling:
             try mutationService.addSibling(
-                to: anchor, firstName: first, lastName: last,
+                to: anchor, firstName: first, lastName: last, sex: sex,
                 birthDate: birthDate, isDeceased: isDeceased,
                 deathDate: deathDate, in: modelContext
             )

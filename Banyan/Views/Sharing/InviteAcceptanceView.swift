@@ -18,6 +18,8 @@ struct InviteAcceptanceView: View {
             Spacer()
         }
         .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .task { await viewModel.accept(token: token, context: context) }
     }
 
@@ -39,7 +41,7 @@ struct InviteAcceptanceView: View {
         case .success:
             Image(systemName: "checkmark.circle.fill")
                 .font(.largeTitle)
-                .foregroundStyle(.green)
+                .foregroundStyle(BanyanTheme.Color.positive)
             Text("You're in!")
                 .font(.title2)
                 .fontWeight(.bold)
@@ -51,14 +53,13 @@ struct InviteAcceptanceView: View {
                 dismiss()
             } label: {
                 Text("View tree")
-                    .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
 
         case .failure(let message):
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.largeTitle)
-                .foregroundStyle(.red)
+                .foregroundStyle(BanyanTheme.Color.warning)
             Text("Invite not valid")
                 .font(.title2)
                 .fontWeight(.bold)

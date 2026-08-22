@@ -7,6 +7,9 @@ import SwiftUI
 
 struct PlaceholderNodeView: View {
     let label: String
+    /// Staggers the pulse so the (up to three) placeholders around a focal person
+    /// don't throb in unison — a calmer, one-at-a-time wave (finding #10).
+    var pulseDelay: Double = 0
     let onTap: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -22,8 +25,8 @@ struct PlaceholderNodeView: View {
                         .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                         .foregroundStyle(BanyanTheme.Color.primary)
                         .shadow(
-                            color: BanyanTheme.Color.primary.opacity(pulsing ? 0 : 0.25),
-                            radius: pulsing ? 8 : 0
+                            color: BanyanTheme.Color.primary.opacity(pulsing ? 0 : 0.14),
+                            radius: pulsing ? 6 : 0
                         )
                     Image(systemName: "plus")
                         .font(.title2)
@@ -42,11 +45,11 @@ struct PlaceholderNodeView: View {
             .padding(.horizontal, 4)
             .frame(width: NodeMetrics.width, height: NodeMetrics.height)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DimOnPressButtonStyle())
         .accessibilityLabel(label)
         .onAppear {
             guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true).delay(pulseDelay)) {
                 pulsing = true
             }
         }

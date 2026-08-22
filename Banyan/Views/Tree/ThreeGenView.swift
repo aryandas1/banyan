@@ -19,20 +19,20 @@ struct ThreeGenView: View {
     /// Called when a placeholder node is tapped, with the relationship to create.
     let onAddPerson: (AddPersonContext) -> Void
 
-    /// At most this many sibling nodes render; beyond it, two nodes plus a "+N more" pill.
-    private let maxVisibleSiblings = 3
-
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                BreadcrumbView(
-                    stack: treeVM.navigationStack,
-                    current: threeGenVM.focalPerson.id,
-                    allPeople: allPeople
-                ) { personId in
-                    treeVM.jumpTo(personId: personId)
-                }
+        VStack(spacing: 0) {
+            BreadcrumbView(
+                stack: treeVM.navigationStack,
+                current: threeGenVM.focalPerson.id,
+                allPeople: allPeople
+            ) { personId in
+                treeVM.jumpTo(personId: personId)
+            }
 
+            // GeometryReader wraps only the scroll area, so `geometry.size.height`
+            // is the true viewport height below the breadcrumb — the value we center
+            // the tree block within.
+            GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 32) {
                         parentRow
@@ -49,9 +49,18 @@ struct ThreeGenView: View {
                             childIds: threeGenVM.children.map(\.id)
                         )
                     }
+                    // Center the 3-generation block in the viewport: a short tree (the
+                    // common case) sits vertically centered instead of pooling whitespace
+                    // above the tab bar, while a tree taller than the viewport still
+                    // scrolls from the top. Connectors ride along — they're anchored to
+                    // the block's node centers, which live inside this frame.
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
                 }
             }
         }
+        // Deliberately titleless (finding #8): the breadcrumb below the bar names
+        // the focal person, and Back / My tree fill the bar — a center title would
+        // just duplicate the breadcrumb and crowd an already-busy inline bar.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -69,7 +78,7 @@ struct ThreeGenView: View {
         HStack(spacing: 24) {
             if threeGenVM.parents.isEmpty {
                 if !isReadOnly {
-                    PlaceholderNodeView(label: "Add parent") {
+                    PlaceholderNodeView(label: "Add parent", pulseDelay: 0) {
                         onAddPerson(.parent(of: threeGenVM.focalPerson))
                     }
                 }
@@ -100,7 +109,7 @@ struct ThreeGenView: View {
             HStack(spacing: 16) {
                 if threeGenVM.children.isEmpty {
                     if !isReadOnly {
-                        PlaceholderNodeView(label: "Add child") {
+                        PlaceholderNodeView(label: "Add child", pulseDelay: 1.4) {
                             onAddPerson(.child(of: threeGenVM.focalPerson))
                         }
                     }
@@ -118,48 +127,33 @@ struct ThreeGenView: View {
 
     @ViewBuilder
     private var siblingNodes: some View {
-        let siblings = threeGenVM.siblings
-        let visible = siblings.count > maxVisibleSiblings ? Array(siblings.prefix(2)) : siblings
-
-        ForEach(visible) { sibling in
+        // Every sibling renders — the middle row scrolls horizontally, so large
+        // families are all reachable rather than hidden behind a "+N more" pill.
+        ForEach(threeGenVM.siblings) { sibling in
             node(for: sibling)
-        }
-
-        if siblings.count > maxVisibleSiblings {
-            Text("+\(siblings.count - 2) more")
-                .font(.caption)
-                .foregroundStyle(BanyanTheme.Color.textSecondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(BanyanTheme.Color.separator))
         }
     }
 
     @ViewBuilder
     private var partnerSlot: some View {
-        if let partner = threeGenVM.focalPartners.first {
-            node(for: partner)
-                .overlay(alignment: .topTrailing) {
-                    if threeGenVM.focalPartners.count > 1 {
-                        Text("+\(threeGenVM.focalPartners.count - 1)")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(BanyanTheme.Color.textSecondary)
-                            .padding(5)
-                            .background(Circle().fill(BanyanTheme.Color.chrome))
-                            .offset(x: 8, y: -8)
-                    }
+        if threeGenVM.focalPartners.isEmpty {
+            if !isReadOnly {
+                PlaceholderNodeView(label: "Add partner", pulseDelay: 0.7) {
+                    onAddPerson(.partner(of: threeGenVM.focalPerson))
                 }
-        } else if !isReadOnly {
-            PlaceholderNodeView(label: "Add partner") {
-                onAddPerson(.partner(of: threeGenVM.focalPerson))
+            }
+        } else {
+            // All partners render (scrollable) instead of one node + a "+N" badge,
+            // so remarriages / multiple partners are each visible and tappable.
+            ForEach(threeGenVM.focalPartners) { partner in
+                node(for: partner)
             }
         }
     }
 
-    /// A person node that publishes its centre anchor and opens the person sheet on tap.
+    /// A person node that publishes its center anchor and opens the person sheet on tap.
     /// Every node — the focal one included — opens the sheet; "See their family"
-    /// inside the sheet is what re-centres the tree.
+    /// inside the sheet is what re-centers the tree.
     private func node(for person: Person, isFocal: Bool = false) -> some View {
         PersonNodeView(person: person, isFocal: isFocal) {
             onSelectPerson(person)

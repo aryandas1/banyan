@@ -7,6 +7,7 @@ import SwiftData
 
 /// The steps pushed after the root name step.
 enum AddPersonStep: Hashable {
+    case gender
     case birth
     case status
     case review
@@ -31,10 +32,14 @@ struct AddPersonView: View {
     var body: some View {
         NavigationStack(path: $path) {
             AddPersonNameStepView(vm: vm) {
-                path.append(.birth)
+                path.append(.gender)
             }
             .navigationDestination(for: AddPersonStep.self) { step in
                 switch step {
+                case .gender:
+                    AddPersonGenderStepView(vm: vm) {
+                        path.append(.birth)
+                    }
                 case .birth:
                     AddPersonBirthStepView(vm: vm) {
                         path.append(.status)

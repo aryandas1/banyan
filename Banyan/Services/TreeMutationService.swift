@@ -20,6 +20,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         to anchorPerson: Person,
         firstName: String,
         lastName: String,
+        sex: Sex = .unknown,
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
@@ -29,6 +30,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             treeId: anchorPerson.treeId,
             firstName: firstName,
             lastName: lastName,
+            sex: sex,
             birthDate: birthDate,
             isDeceased: isDeceased,
             deathDate: deathDate
@@ -67,6 +69,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         to anchorPerson: Person,
         firstName: String,
         lastName: String,
+        sex: Sex = .unknown,
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
@@ -77,6 +80,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             treeId: anchorPerson.treeId,
             firstName: firstName,
             lastName: lastName,
+            sex: sex,
             birthDate: birthDate,
             isDeceased: isDeceased,
             deathDate: deathDate
@@ -110,6 +114,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         to anchorPerson: Person,
         firstName: String,
         lastName: String,
+        sex: Sex = .unknown,
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
@@ -119,6 +124,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             treeId: anchorPerson.treeId,
             firstName: firstName,
             lastName: lastName,
+            sex: sex,
             birthDate: birthDate,
             isDeceased: isDeceased,
             deathDate: deathDate
@@ -152,6 +158,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         to anchorPerson: Person,
         firstName: String,
         lastName: String,
+        sex: Sex = .unknown,
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?,
@@ -161,6 +168,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             treeId: anchorPerson.treeId,
             firstName: firstName,
             lastName: lastName,
+            sex: sex,
             birthDate: birthDate,
             isDeceased: isDeceased,
             deathDate: deathDate
@@ -363,6 +371,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         treeId: UUID,
         firstName: String,
         lastName: String,
+        sex: Sex,
         birthDate: PartialDate?,
         isDeceased: Bool,
         deathDate: PartialDate?
@@ -371,6 +380,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             treeId: treeId,
             firstName: firstName.trimmingCharacters(in: .whitespaces),
             lastName: lastName.trimmingCharacters(in: .whitespaces),
+            sex: sex,
             birthDate: birthDate,
             deathDate: isDeceased ? (deathDate ?? PartialDate()) : nil
         )

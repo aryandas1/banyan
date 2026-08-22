@@ -1,5 +1,8 @@
 // AddPersonBirthStepView.swift
-// Step 2 of the add-person flow: birth year. Optional — "I don't know" skips it.
+// Add-person flow: birth date. Year is the primary field and enough on its own
+// (genealogy often knows only a year); month and day are optional wheel pickers,
+// and a day is only meaningful once a month is chosen. "I don't know" skips the
+// whole thing; "Continue" carries whatever was entered forward.
 
 import SwiftUI
 
@@ -7,24 +10,49 @@ struct AddPersonBirthStepView: View {
     @Bindable var vm: AddPersonViewModel
     let onContinue: () -> Void
 
+    // 0 = not selected; 1–12 = month; 1–31 = day. Local state kept in sync with the
+    // ViewModel via .onChange so the VM's interface (birthMonth: Int?, birthDayText:
+    // String) is unchanged.
+    @State private var selectedMonth: Int = 0
+    @State private var selectedDay: Int = 0
+    /// The numberPad year field has no return key to dismiss itself, so a keyboard
+    /// toolbar "Done" drives this — otherwise the keyboard can sit over Continue.
+    @FocusState private var yearFieldFocused: Bool
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {
             Text("When were they born?")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            TextField("e.g. 1945", text: $vm.birthYearText)
+            // Year — text field (a 4-digit number is faster to type than to scroll).
+            TextField("Year, e.g. 1945", text: $vm.birthYearText)
                 .font(.title2)
                 .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+                .focused($yearFieldFocused)
+                .banyanTextInput(focused: yearFieldFocused)
 
-            Button("I don't know") {
+            // Month + Day — wheel pickers (the standard iOS pattern for short lists).
+            MonthDayWheels(month: $selectedMonth, day: $selectedDay)
+
+            Button {
                 vm.birthYearText = ""
+                vm.birthMonth = nil
+                vm.birthDayText = ""
+                selectedMonth = 0
+                selectedDay = 0
                 onContinue()
+            } label: {
+                Text("I don't know")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(BanyanTheme.Color.border, lineWidth: 1.5)
+                    )
             }
-            .font(.body)
-            .foregroundStyle(.secondary)
-            .frame(minWidth: 44, minHeight: 44)
+            .buttonStyle(.plain)
 
             Spacer()
 
@@ -32,11 +60,36 @@ struct AddPersonBirthStepView: View {
                 onContinue()
             } label: {
                 Text("Continue")
-                    .font(.title3)
-                    .frame(maxWidth: .infinity, minHeight: 56)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(PrimaryFilledButtonStyle())
         }
         .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        .toolbar {
+            // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { yearFieldFocused = false }
+            }
+        }
+        .onAppear {
+            // Restore the pickers if the user navigated back to this step.
+            selectedMonth = vm.birthMonth ?? 0
+            selectedDay = Int(vm.birthDayText) ?? 0
+        }
+        .onChange(of: selectedMonth) { _, newMonth in
+            // Reaching for a picker means they're done typing the year — drop the keyboard.
+            yearFieldFocused = false
+            vm.birthMonth = newMonth == 0 ? nil : newMonth
+            // Clearing the month clears the day too — a day alone is meaningless.
+            if newMonth == 0 {
+                selectedDay = 0
+                vm.birthDayText = ""
+            }
+        }
+        .onChange(of: selectedDay) { _, newDay in
+            vm.birthDayText = newDay == 0 ? "" : "\(newDay)"
+        }
     }
 }

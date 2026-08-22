@@ -1,5 +1,5 @@
 // TreeViewModelTests.swift
-// Focus and back-stack behaviour. The suite is @MainActor because TreeViewModel is.
+// Focus and back-stack behavior. The suite is @MainActor because TreeViewModel is.
 
 import Foundation
 import Testing

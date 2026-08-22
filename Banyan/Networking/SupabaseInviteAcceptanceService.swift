@@ -8,7 +8,7 @@
 // because it wraps the live SDK client and can't be unit-tested — keeping it off
 // the `make coverage` gate. Injected the shared client (no singletons; CLAUDE.md).
 //
-// Backend behaviour verified live (two anonymous sessions, curl): accept_invitation
+// Backend behavior verified live (two anonymous sessions, curl): accept_invitation
 // returns the tree_id as a bare uuid scalar and flips the invitee to viewer; the
 // member read policies then allow SELECT on persons/unions/person_union_links.
 

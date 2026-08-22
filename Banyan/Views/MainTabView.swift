@@ -3,7 +3,7 @@
 // a shared tree has been accepted. Every tab item carries a text label as well as
 // an icon — this app's users rely on labels.
 //
-// The tree centres on the "root" person. For an owner that's their own
+// The tree centers on the "root" person. For an owner that's their own
 // ownerPersonId; a viewer never onboarded, so in read-only mode the root is the
 // focal ViewerRootPicker chose for the shared tree (see ViewerStore).
 
@@ -23,13 +23,22 @@ struct MainTabView: View {
     /// a refresh — the accept may have stored a nil root from an empty pull.
     @State private var viewerRoot: UUID?
 
-    /// The person the tree centres on. Owner: their own id from storage. Viewer:
+    /// The visible tab. Hoisted here so the People tab can switch to the Tree tab
+    /// when the user taps "See their family" on a person.
+    @State private var selectedTab: MainTab = .tree
+    /// A person the Tree tab should re-center on, set by the People tab and consumed
+    /// (cleared) by TreeTabView once it focuses. nil when there's nothing pending.
+    @State private var pendingFocus: UUID?
+
+    private enum MainTab: Hashable { case tree, people, settings }
+
+    /// The person the tree centers on. Owner: their own id from storage. Viewer:
     /// the reactive focal resolved for the shared tree. Falls back to the all-zero
     /// UUID if neither resolves — the tab still renders rather than crashing.
     private var rootPersonId: UUID {
         if isReadOnly {
             // Prefer the root stored for THIS tree, so a switch (including viewed →
-            // viewed) centres on the right person immediately rather than the
+            // viewed) centers on the right person immediately rather than the
             // previous tree's stale focal. Fall back to the reactive viewerRoot,
             // which the .task recomputes to self-heal an empty accept (no stored root).
             if let root = storedViewerRoot ?? viewerRoot { return root }
@@ -39,25 +48,33 @@ struct MainTabView: View {
     }
 
     /// The focal stored for the active viewed tree, read synchronously so a tree
-    /// switch has an immediate centre without waiting for the async resolve.
+    /// switch has an immediate center without waiting for the async resolve.
     private var storedViewerRoot: UUID? {
         guard let treeId = UUID(uuidString: treeIdString) else { return nil }
         return ViewerStore().rootPersonId(forTree: treeId)
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             // Keyed on the active tree so switching rebuilds the tab with the new
             // tree's focal (fresh browse state) rather than reusing the old one.
-            TreeTabView(ownerPersonId: rootPersonId)
+            TreeTabView(ownerPersonId: rootPersonId, focusRequest: $pendingFocus)
                 .id(treeIdString)
+                .tag(MainTab.tree)
                 .tabItem { Label("Tree", systemImage: "person.3.fill") }
 
-            PeopleListView(ownerPersonId: rootPersonId)
+            PeopleListView(ownerPersonId: rootPersonId) { personId in
+                // From the People tab, "See their family" re-centers the Tree tab
+                // on that person and switches to it.
+                pendingFocus = personId
+                selectedTab = .tree
+            }
                 .id(treeIdString)
+                .tag(MainTab.people)
                 .tabItem { Label("People", systemImage: "list.bullet") }
 
             SettingsView()
+                .tag(MainTab.settings)
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
         // Re-runs on launch AND whenever the active tree changes (a switch), so the
