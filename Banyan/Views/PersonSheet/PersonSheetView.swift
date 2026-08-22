@@ -287,13 +287,13 @@ struct PersonSheetView: View {
             || !sheetVM.children.isEmpty || !sheetVM.siblings.isEmpty
         if hasFamily {
             Section {
-                relationshipRows(sheetVM.parents, label: "Parent")
-                relationshipRows(sheetVM.partners, label: "Partner")
-                relationshipRows(sheetVM.children, label: "Child")
+                relationshipRows(sheetVM.parents, kind: .parent)
+                relationshipRows(sheetVM.partners, kind: .partner)
+                relationshipRows(sheetVM.children, kind: .child)
                 // Siblings can't be unlinked: the shared union is the parents'
                 // union, so removing the sibling's link would detach them from
                 // their own parents, not just from this person.
-                relationshipRows(sheetVM.siblings, label: "Sibling", canUnlink: false)
+                relationshipRows(sheetVM.siblings, kind: .sibling, canUnlink: false)
             } header: {
                 Text("Family")
                     .font(.headline)
@@ -304,22 +304,47 @@ struct PersonSheetView: View {
         }
     }
 
+    /// The relationship categories shown in the Family section.
+    private enum RelationKind { case parent, partner, child, sibling }
+
     @ViewBuilder
     private func relationshipRows(
         _ people: [Person],
-        label: String,
+        kind: RelationKind,
         canUnlink: Bool = true
     ) -> some View {
         ForEach(people) { relative in
             RelationshipRowView(
                 person: relative,
-                relationshipLabel: label,
+                relationshipLabel: label(kind, for: relative),
                 onTap: {
                     onSeeFamily(relative.id)
                     dismiss()
                 },
                 onDelete: (canUnlink && !isReadOnly) ? { unlink(relative) } : nil
             )
+        }
+    }
+
+    /// A sexed label for a direct relative — "Wife" / "Daughter" / "Son" / … — so the
+    /// Family section matches the People list's wording. This is relative to the FOCAL
+    /// person (whose sheet this is), which is the right frame here; the People list is
+    /// relative to the tree owner instead, so the two can legitimately differ on
+    /// someone else's sheet.
+    private func label(_ kind: RelationKind, for relative: Person) -> String {
+        switch kind {
+        case .parent:  return sexedWord(relative, male: "Father",  female: "Mother",   unknown: "Parent")
+        case .partner: return sexedWord(relative, male: "Husband", female: "Wife",     unknown: "Partner")
+        case .child:   return sexedWord(relative, male: "Son",     female: "Daughter", unknown: "Child")
+        case .sibling: return sexedWord(relative, male: "Brother", female: "Sister",   unknown: "Sibling")
+        }
+    }
+
+    private func sexedWord(_ person: Person, male: String, female: String, unknown: String) -> String {
+        switch person.sex {
+        case .male:    return male
+        case .female:  return female
+        case .unknown: return unknown
         }
     }
 
