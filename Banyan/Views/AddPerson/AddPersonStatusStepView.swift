@@ -41,17 +41,22 @@ struct AddPersonStatusStepView: View {
             }
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Keep Continue above the keyboard while the death-year field is focused.
+        .safeAreaInset(edge: .bottom) {
             Button {
                 onContinue()
             } label: {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .toolbar {
             // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
             ToolbarItemGroup(placement: .keyboard) {

@@ -33,7 +33,13 @@ struct AddPersonNameStepView: View {
                 .banyanTextInput(focused: isLastNameFocused)
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Pin Continue above the keyboard — a bottom-of-frame button is otherwise
+        // hidden behind it while the name field is being typed.
+        .safeAreaInset(edge: .bottom) {
             Button {
                 onContinue()
             } label: {
@@ -41,10 +47,10 @@ struct AddPersonNameStepView: View {
             }
             .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinueFromName)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .onAppear {
             isFirstNameFocused = true
         }
