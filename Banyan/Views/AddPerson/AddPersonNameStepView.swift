@@ -23,23 +23,21 @@ struct AddPersonNameStepView: View {
             TextField("First name", text: $vm.firstName)
                 .font(.title3)
                 .textContentType(.givenName)
+                .submitLabel(.next)
                 .focused($isFirstNameFocused)
                 .banyanTextInput(focused: isFirstNameFocused)
+                .onSubmit { isLastNameFocused = true }
 
             TextField("Last name (optional)", text: $vm.lastName)
                 .font(.title3)
                 .textContentType(.familyName)
+                .submitLabel(.done)
                 .focused($isLastNameFocused)
                 .banyanTextInput(focused: isLastNameFocused)
+                .onSubmit { if vm.canContinueFromName { onContinue() } }
 
             Spacer()
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // Pin Continue above the keyboard — a bottom-of-frame button is otherwise
-        // hidden behind it while the name field is being typed.
-        .safeAreaInset(edge: .bottom) {
+
             Button {
                 onContinue()
             } label: {
@@ -47,9 +45,24 @@ struct AddPersonNameStepView: View {
             }
             .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinueFromName)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(BanyanTheme.Color.background)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Don't let the layout jump up when the keyboard appears (that avoidance is the
+        // flaky bit) — the fields sit near the top and stay visible regardless, and the
+        // accessory-bar Continue below is the reliable above-keyboard control.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        // The letter keyboard sits over the bottom Continue while typing, so give an
+        // always-reachable Continue in the keyboard's accessory bar (the reliable
+        // above-the-keyboard surface — safeAreaInset avoidance proved flaky on device).
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Continue") { onContinue() }
+                    .fontWeight(.semibold)
+                    .disabled(!vm.canContinueFromName)
+            }
         }
         .onAppear {
             isFirstNameFocused = true

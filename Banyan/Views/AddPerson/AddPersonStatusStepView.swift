@@ -41,27 +41,28 @@ struct AddPersonStatusStepView: View {
             }
 
             Spacer()
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // Keep Continue above the keyboard while the death-year field is focused.
-        .safeAreaInset(edge: .bottom) {
+
             Button {
                 onContinue()
             } label: {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(BanyanTheme.Color.background)
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Keep the layout steady when the keyboard appears (its avoidance is flaky);
+        // Done reveals the wheels, Continue advances — both live in the accessory bar.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar {
-            // numberPad has no dismiss key; give one so the keyboard can't hide Continue.
+            // The numberPad covers the wheels and the bottom Continue, so the accessory
+            // bar carries both: Done to reveal the wheels, Continue to advance directly.
             ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
                 Button("Done") { deathYearFocused = false }
+                Spacer()
+                Button("Continue") { onContinue() }
+                    .fontWeight(.semibold)
             }
         }
         .onAppear {
