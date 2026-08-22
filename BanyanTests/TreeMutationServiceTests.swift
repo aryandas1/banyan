@@ -518,6 +518,31 @@ struct TreeMutationServiceTests {
         #expect(union?.startDate?.day == 12)
     }
 
+    @Test func addPartnerUnmarriedCoParentClearsAnyExistingDate() throws {
+        // Given a lone parent whose (co-parentable) union carries a date
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let me = builder.makePerson(firstName: "Me", treeId: treeId)
+        let dad = try service.addParent(
+            to: me, firstName: "Dad", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil, in: builder.context
+        )
+        let union = dad.links.compactMap(\.union).first
+        union?.startDate = PartialDate(year: 2000)
+
+        // When a co-parent is added as explicitly not married
+        try service.addPartner(
+            to: dad, firstName: "Mom", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            coParentExistingChildren: true, isUnmarriedPartner: true,
+            in: builder.context
+        )
+
+        // Then the joined union is a partnership with no lingering anniversary
+        #expect(union?.type == .partnered)
+        #expect(union?.startDate == nil)
+    }
+
     @Test func setUnionRelationshipMarriedRecordsTypeAndDate() throws {
         // Given an existing, date-less union
         let builder = try TestTreeBuilder()

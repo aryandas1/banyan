@@ -116,6 +116,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         // "assumed spouse, date unknown" case that still reads as Husband/Wife.
         if isUnmarriedPartner {
             union.type = .partnered
+            union.startDate = nil   // a partnership has no anniversary (invariant with setUnionRelationship)
         } else if let marriageDate {
             union.startDate = marriageDate
             union.type = .married

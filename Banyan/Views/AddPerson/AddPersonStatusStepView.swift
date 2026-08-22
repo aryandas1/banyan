@@ -41,20 +41,24 @@ struct AddPersonStatusStepView: View {
             }
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Keep the big Continue always visible above the keyboard — older users
+        // shouldn't have to discover "Done" to find the way forward. Done stays in the
+        // accessory bar to dismiss the pad and reach the (optional) month/day wheels.
+        .keyboardAwareBottomBar {
             Button {
                 onContinue()
             } label: {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // Hold the layout steady when the numberPad appears; the year field stays
-        // visible, and Done dismisses the pad to reveal the wheels + Continue.
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()

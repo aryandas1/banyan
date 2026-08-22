@@ -625,7 +625,11 @@ struct PersonSheetView: View {
     /// owner; a viewer sees only the dated marriage, non-interactive.
     @ViewBuilder
     private func marriageRow(_ marriage: Marriage) -> some View {
-        if marriage.union.type == .partnered {
+        // A partnership has no date, so this bare status row is only for a date-less
+        // .partnered union; requiring startDate == nil means a union that somehow
+        // carries a date (e.g. imported data breaking the invariant) still falls
+        // through to the dated row below rather than silently dropping the date.
+        if marriage.union.type == .partnered, marriage.startDate == nil {
             // Owner only (a viewer's visibleMarriages excludes date-less unions).
             editableMarriageRow(marriage, accessibility: "Edit relationship with \(marriage.partner.firstName)") {
                 dateRow(
