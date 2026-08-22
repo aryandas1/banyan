@@ -20,6 +20,8 @@ struct PersonSheetView: View {
     @State private var deleteError: Error?
     @State private var showAddPhoto = false
     @State private var photoSelection: PhotoSelection?
+    /// The marriage whose anniversary date is being set/changed (owner only).
+    @State private var marriageToEdit: Marriage?
 
     // Profile-photo flow: tapping the avatar picks a photo, frames it in the
     // Move & Scale step, then saves — or, when a photo already exists, offers a
@@ -162,6 +164,15 @@ struct PersonSheetView: View {
             if let profile = person.profilePhoto {
                 ProfilePhotoCropView(photo: profile)
             }
+        }
+        // Set or change a marriage's anniversary date (owner only). Refresh on
+        // dismiss so the Dates card reflects the new/cleared date.
+        .sheet(item: $marriageToEdit, onDismiss: { sheetVM.refresh() }) { marriage in
+            MarriageDateEditView(
+                union: marriage.union,
+                partnerName: marriage.partner.firstName,
+                mutationService: mutationService
+            )
         }
     }
 
@@ -337,7 +348,7 @@ struct PersonSheetView: View {
     private func label(_ kind: RelationKind, for relative: Person) -> String {
         switch kind {
         case .parent:  return sexedWord(relative, male: "Father",  female: "Mother",   unknown: "Parent")
-        case .partner: return sexedWord(relative, male: "Husband", female: "Wife",     unknown: "Partner")
+        case .partner: return RelationshipLabel.partnerWord(unionType: sheetVM.partnerUnionType(with: relative), sex: relative.sex)
         case .child:   return sexedWord(relative, male: "Son",     female: "Daughter", unknown: "Child")
         case .sibling: return sexedWord(relative, male: "Brother", female: "Sister",   unknown: "Sibling")
         }
@@ -491,7 +502,7 @@ struct PersonSheetView: View {
     /// deceased. Hidden entirely when no date is recorded.
     @ViewBuilder
     private var datesSection: some View {
-        if person.birthDate != nil || person.isDeceased {
+        if person.birthDate != nil || person.isDeceased || !visibleMarriages.isEmpty {
             Section {
                 VStack(alignment: .leading, spacing: 18) {
                     if let birth = person.birthDate {
@@ -513,6 +524,9 @@ struct PersonSheetView: View {
                             age: diedAgeText,
                             pill: shraddhaPill
                         )
+                    }
+                    ForEach(visibleMarriages) { marriage in
+                        marriageRow(marriage)
                     }
                 }
                 .padding(16)
@@ -594,6 +608,120 @@ struct PersonSheetView: View {
         guard person.isDeceased, let death = person.deathDate,
               let phrase = upcomingPhrase(for: death) else { return nil }
         return "🪔 Shraddha \(phrase)"
+    }
+
+    /// The partnerships shown on the Dates card. The owner sees every one — marriages
+    /// (dated or a date-less "Add anniversary" prompt) and unmarried partners (a
+    /// tappable status row) — so each has an entry point to edit its status. A viewer
+    /// only sees the ones with a date (always marriages), so read-only never shows an
+    /// edit prompt or a bare partner row.
+    private var visibleMarriages: [Marriage] {
+        isReadOnly ? sheetVM.marriages.filter { $0.startDate != nil } : sheetVM.marriages
+    }
+
+    /// One partnership row on the Dates card: an unmarried-partner status row, a dated
+    /// "Married <partner>" row (with a 💍 pill when the anniversary is near), or — when
+    /// married with no date yet — a prompt to add one. All are tappable to edit for the
+    /// owner; a viewer sees only the dated marriage, non-interactive.
+    @ViewBuilder
+    private func marriageRow(_ marriage: Marriage) -> some View {
+        // A partnership has no date, so this bare status row is only for a date-less
+        // .partnered union; requiring startDate == nil means a union that somehow
+        // carries a date (e.g. imported data breaking the invariant) still falls
+        // through to the dated row below rather than silently dropping the date.
+        if marriage.union.type == .partnered, marriage.startDate == nil {
+            // Owner only (a viewer's visibleMarriages excludes date-less unions).
+            editableMarriageRow(marriage, accessibility: "Edit relationship with \(marriage.partner.firstName)") {
+                dateRow(
+                    icon: "heart",
+                    tint: BanyanTheme.Color.marriage,
+                    title: "Partner",
+                    value: marriage.partner.firstName,
+                    age: nil,
+                    pill: nil
+                )
+            }
+        } else if let start = marriage.startDate {
+            editableMarriageRow(marriage, accessibility: "Change anniversary with \(marriage.partner.firstName)") {
+                dateRow(
+                    icon: "heart.fill",
+                    tint: BanyanTheme.Color.marriage,
+                    title: "Married \(marriage.partner.firstName)",
+                    value: start.displayString,
+                    age: marriedYearsText(start),
+                    pill: anniversaryPill(for: start)
+                )
+            }
+        } else {
+            // Owner only (a viewer's visibleMarriages excludes date-less unions).
+            Button {
+                marriageToEdit = marriage
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: "heart")
+                        .font(.footnote)
+                        .foregroundStyle(BanyanTheme.Color.marriage)
+                        .frame(width: 34, height: 34)
+                        .background(BanyanTheme.Color.marriage.opacity(0.12))
+                        .clipShape(Circle())
+                    Text("Add anniversary with \(marriage.partner.firstName)")
+                        .font(.body)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                    Spacer(minLength: 0)
+                    // Match the saved row's trailing chevron so the prompt reads as
+                    // tappable too — an outline heart (unset) vs the filled one (set).
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                }
+                .contentShape(Rectangle())
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Wraps a Dates-card partnership row so the owner can tap it (adding a trailing
+    /// chevron + a11y label) to open the relationship editor; a viewer sees it plain.
+    @ViewBuilder
+    private func editableMarriageRow(
+        _ marriage: Marriage,
+        accessibility: String,
+        @ViewBuilder row: () -> some View
+    ) -> some View {
+        if isReadOnly {
+            row()
+        } else {
+            Button {
+                marriageToEdit = marriage
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    row()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(BanyanTheme.Color.textSecondary)
+                        .padding(.top, 8)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibility)
+        }
+    }
+
+    /// Whole years married so far, shown beside the date like the birthday's age —
+    /// e.g. "31 yrs". Nil when the marriage year is unknown or it's the same year
+    /// (a "0 yrs" reads oddly on a wedding row).
+    private func marriedYearsText(_ start: PartialDate) -> String? {
+        guard let years = PersonAge.years(from: start, to: nil), years >= 1 else { return nil }
+        return "\(years) yrs"
+    }
+
+    /// The anniversary pill for a marriage — only when the next anniversary falls
+    /// within the same ~3-month window as the birthday/shraddha pills.
+    private func anniversaryPill(for date: PartialDate) -> String? {
+        guard let phrase = upcomingPhrase(for: date) else { return nil }
+        return "💍 Anniversary \(phrase)"
     }
 
     /// The countdown phrase, but only when the anniversary falls within the next ~3

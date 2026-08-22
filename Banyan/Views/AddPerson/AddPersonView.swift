@@ -9,6 +9,7 @@ import SwiftData
 enum AddPersonStep: Hashable {
     case gender
     case birth
+    case marriage
     case status
     case review
 }
@@ -42,6 +43,10 @@ struct AddPersonView: View {
                     }
                 case .birth:
                     AddPersonBirthStepView(vm: vm) {
+                        path.append(stepAfterBirth)
+                    }
+                case .marriage:
+                    AddPersonMarriageStepView(vm: vm) {
                         path.append(.status)
                     }
                 case .status:
@@ -62,6 +67,14 @@ struct AddPersonView: View {
                 Text(vm.saveError?.localizedDescription ?? "Something went wrong. Please try again.")
             }
         }
+    }
+
+    /// The step after birth: the marriage/anniversary step is offered only when
+    /// adding a partner (the one context where an anniversary makes sense); every
+    /// other relationship goes straight to the living/deceased status step.
+    private var stepAfterBirth: AddPersonStep {
+        if case .partner = vm.context { return .marriage }
+        return .status
     }
 
     /// Runs the save, then notifies the parent and closes the sheet.

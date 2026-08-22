@@ -16,6 +16,14 @@ protocol GraphServiceProtocol {
     /// All partners across all of this person's unions.
     func allPartners(of person: Person) -> [Person]
 
+    /// The unions where this person is a partner — each a distinct relationship
+    /// that can carry its own anniversary (`Union.startDate`).
+    func partnerUnions(of person: Person) -> [Union]
+
+    /// The union in which `a` and `b` are partners together, if any — the edge that
+    /// carries their marriage/partnership `type` and anniversary.
+    func partnerUnion(of a: Person, with b: Person) -> Union?
+
     /// The parents of a person — the partner(s) of the union where this person is a child.
     func parents(of person: Person) -> [Person]
 

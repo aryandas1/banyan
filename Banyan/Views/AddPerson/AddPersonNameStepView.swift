@@ -23,17 +23,26 @@ struct AddPersonNameStepView: View {
             TextField("First name", text: $vm.firstName)
                 .font(.title3)
                 .textContentType(.givenName)
+                .submitLabel(.next)
                 .focused($isFirstNameFocused)
                 .banyanTextInput(focused: isFirstNameFocused)
+                .onSubmit { isLastNameFocused = true }
 
             TextField("Last name (optional)", text: $vm.lastName)
                 .font(.title3)
                 .textContentType(.familyName)
+                .submitLabel(.done)
                 .focused($isLastNameFocused)
                 .banyanTextInput(focused: isLastNameFocused)
+                .onSubmit { if vm.canContinueFromName { onContinue() } }
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // The big Continue button, kept just above the keyboard while typing.
+        .keyboardAwareBottomBar {
             Button {
                 onContinue()
             } label: {
@@ -41,10 +50,10 @@ struct AddPersonNameStepView: View {
             }
             .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinueFromName)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
         .onAppear {
             isFirstNameFocused = true
         }

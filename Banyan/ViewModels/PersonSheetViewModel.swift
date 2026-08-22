@@ -5,6 +5,17 @@
 import Foundation
 import UIKit
 
+/// One of the focal person's partnerships, for the Dates card: the partner it's
+/// with and the union that carries the anniversary. `startDate` is read live off the
+/// union so an edit reflects on the next refresh without rebuilding the value.
+struct Marriage: Identifiable {
+    let partner: Person
+    let union: Union
+    /// The union's id — stable per relationship, so `.sheet(item:)`/ForEach are happy.
+    var id: UUID { union.id }
+    var startDate: PartialDate? { union.startDate }
+}
+
 @MainActor
 @Observable
 final class PersonSheetViewModel {
@@ -14,6 +25,9 @@ final class PersonSheetViewModel {
     private(set) var partners: [Person] = []
     private(set) var children: [Person] = []
     private(set) var siblings: [Person] = []
+    /// The focal person's partnerships, each pairing a partner with its union — the
+    /// source of the "Married <partner>" rows and anniversary pills on the Dates card.
+    private(set) var marriages: [Marriage] = []
     private(set) var profileImage: UIImage?
 
     init(person: Person, graphService: GraphServiceProtocol) {
@@ -28,7 +42,20 @@ final class PersonSheetViewModel {
         partners = graphService.allPartners(of: person)
         children = graphService.children(of: person)
         siblings = graphService.siblings(of: person)
+        marriages = graphService.partnerUnions(of: person).compactMap { union in
+            // A union with no other partner yet (a lone-parent union) has no
+            // marriage to show — skip it until a partner is actually named.
+            guard let partner = graphService.partners(of: person, in: union).first else { return nil }
+            return Marriage(partner: partner, union: union)
+        }
         loadProfileImage()
+    }
+
+    /// The union type between the focal person and a partner of theirs — drives
+    /// whether the Family row reads "Husband"/"Wife" or "Partner". Falls back to
+    /// `.unknown` (sexed Husband/Wife) when no shared partner union is found.
+    func partnerUnionType(with relative: Person) -> UnionType {
+        marriages.first { $0.partner.id == relative.id }?.union.type ?? .unknown
     }
 
     /// Loads the current profile photo off the main thread, clearing it when the

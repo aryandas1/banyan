@@ -71,6 +71,36 @@ struct RelationshipLabelTests {
         #expect(label == "Partner")
     }
 
+    @Test func partneredUnionReadsPartnerRegardlessOfSex() throws {
+        // Given a male partner in an explicitly-unmarried (.partnered) union
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let boyfriend = builder.makePerson(firstName: "Adi", treeId: tree)
+        boyfriend.sex = .male
+        let union = builder.makeUnion(type: .partnered, treeId: tree)
+        builder.link(person: owner, to: union, role: .partner)
+        builder.link(person: boyfriend, to: union, role: .partner)
+
+        // Then he reads as "Partner", not "Husband"
+        #expect(RelationshipLabel.label(from: owner, to: boyfriend, using: graphService) == "Partner")
+    }
+
+    @Test func unknownUnionKeepsSexedSpouseLabel() throws {
+        // Regression guard: an .unknown union (every pre-feature couple) still reads
+        // as the sexed Husband/Wife — the distinction only kicks in for .partnered.
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let wife = builder.makePerson(firstName: "Sita", treeId: tree)
+        wife.sex = .female
+        let union = builder.makeUnion(type: .unknown, treeId: tree)
+        builder.link(person: owner, to: union, role: .partner)
+        builder.link(person: wife, to: union, role: .partner)
+
+        #expect(RelationshipLabel.label(from: owner, to: wife, using: graphService) == "Wife")
+    }
+
     // MARK: - Depth 2
 
     @Test func siblingLabel() throws {
@@ -231,7 +261,7 @@ struct RelationshipLabelTests {
         let aunt = addChild(of: grandparent, sex: .female, in: builder)  // parent's sister
 
         let label = RelationshipLabel.label(from: owner, to: aunt, using: graphService)
-        #expect(label == "Aunty")
+        #expect(label == "Aunt")
     }
 
     @Test func auntOrUncleLabelWhenSexUnknown() throws {
@@ -243,7 +273,7 @@ struct RelationshipLabelTests {
         let pibling = addChild(of: grandparent, sex: .unknown, in: builder)
 
         let label = RelationshipLabel.label(from: owner, to: pibling, using: graphService)
-        #expect(label == "Uncle or aunty")
+        #expect(label == "Uncle or aunt")
     }
 
     @Test func nephewLabel() throws {
@@ -517,6 +547,74 @@ struct RelationshipLabelTests {
         // BFS must terminate and return the shortest path's label, not loop between branches.
         let label = RelationshipLabel.label(from: owner, to: father, using: graphService)
         #expect(label == "Father")
+    }
+
+    // MARK: - Aunt (not Aunty) + grand-aunt
+
+    @Test func grandAuntLabel() throws {
+        // Owner's grandparent's sister → "Grand-aunt" (not "Grand-aunty").
+        let builder = try TestTreeBuilder()
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        let parent = addParent(of: owner, in: builder)
+        let grandparent = addParent(of: parent, in: builder)
+        let greatGrandparent = addParent(of: grandparent, in: builder)
+        let grandAunt = addChild(of: greatGrandparent, sex: .female, in: builder)  // grandparent's sister
+
+        #expect(RelationshipLabel.label(from: owner, to: grandAunt, using: graphService) == "Grand-aunt")
+    }
+
+    // MARK: - A sibling-in-law's relatives (named, not "Extended family")
+
+    /// Owner — brother — brother's wife (sister-in-law) — her mother.
+    private func siblingInLawFamily(
+        in builder: TestTreeBuilder
+    ) throws -> (owner: Person, sisterInLaw: Person, silMother: Person, silSister: Person, silSistersHusband: Person) {
+        let tree = UUID()
+        let owner = builder.makePerson(firstName: "Owner", treeId: tree)
+        // Owner + brother share a parent → siblings.
+        let parent = builder.makePerson(firstName: "Parent", treeId: tree)
+        let brother = builder.makePerson(firstName: "Brother", treeId: tree)
+        let parentUnion = builder.makeUnion(treeId: tree)
+        builder.link(person: parent, to: parentUnion, role: .partner)
+        builder.link(person: owner, to: parentUnion, role: .child)
+        builder.link(person: brother, to: parentUnion, role: .child)
+        // Brother's wife = the sister-in-law.
+        let sil = builder.makePerson(firstName: "Sil", treeId: tree); sil.sex = .female
+        let marriage = builder.makeUnion(treeId: tree)
+        builder.link(person: brother, to: marriage, role: .partner)
+        builder.link(person: sil, to: marriage, role: .partner)
+        // The sister-in-law's mother + sister (children of a shared parent union).
+        let silMother = builder.makePerson(firstName: "SilMom", treeId: tree); silMother.sex = .female
+        let silParentUnion = builder.makeUnion(treeId: tree)
+        builder.link(person: silMother, to: silParentUnion, role: .partner)
+        builder.link(person: sil, to: silParentUnion, role: .child)
+        let silSister = builder.makePerson(firstName: "SilSis", treeId: tree); silSister.sex = .female
+        builder.link(person: silSister, to: silParentUnion, role: .child)
+        // The sister-in-law's sister's husband.
+        let silSistersHusband = builder.makePerson(firstName: "SilSisHub", treeId: tree); silSistersHusband.sex = .male
+        let sisterMarriage = builder.makeUnion(treeId: tree)
+        builder.link(person: silSister, to: sisterMarriage, role: .partner)
+        builder.link(person: silSistersHusband, to: sisterMarriage, role: .partner)
+        return (owner, sil, silMother, silSister, silSistersHusband)
+    }
+
+    @Test func sisterInLawsMotherIsNamed() throws {
+        let builder = try TestTreeBuilder()
+        let f = try siblingInLawFamily(in: builder)
+        #expect(RelationshipLabel.label(from: f.owner, to: f.silMother, using: graphService) == "Sister-in-law's mother")
+    }
+
+    @Test func sisterInLawsSisterIsNamed() throws {
+        let builder = try TestTreeBuilder()
+        let f = try siblingInLawFamily(in: builder)
+        #expect(RelationshipLabel.label(from: f.owner, to: f.silSister, using: graphService) == "Sister-in-law's sister")
+    }
+
+    @Test func sisterInLawsSistersHusbandIsNamed() throws {
+        let builder = try TestTreeBuilder()
+        let f = try siblingInLawFamily(in: builder)
+        #expect(RelationshipLabel.label(from: f.owner, to: f.silSistersHusband, using: graphService) == "Sister-in-law's sister's husband")
     }
 }
 

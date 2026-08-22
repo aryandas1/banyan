@@ -29,6 +29,16 @@ final class AddPersonViewModel {
     /// is set. Exact death dates matter for Hindu shraddha observances.
     var deathMonth: Int? = nil
     var deathDayText: String = ""
+    /// Marriage / anniversary date — only captured in the `.partner` context. The
+    /// year is optional (a known anniversary day with an unknown year is still worth
+    /// keeping); a day is only kept alongside a month, like birth and death.
+    var marriageYearText: String = ""
+    var marriageMonth: Int? = nil
+    var marriageDayText: String = ""
+    /// Set when the user says the couple aren't married on the marriage step — marks
+    /// their union `.partnered` (labeled "Partner", no anniversary) instead of a
+    /// marriage. Only consulted in the `.partner` context.
+    var isUnmarriedPartner: Bool = false
     private(set) var isSaving: Bool = false
     var saveError: Error? = nil
 
@@ -48,7 +58,7 @@ final class AddPersonViewModel {
     /// month/day with an unknown year (e.g. a known birthday) is preserved, since
     /// PartialDate supports it. Nil only when nothing at all is known.
     var birthDate: PartialDate? {
-        Self.partialDate(yearText: birthYearText, month: birthMonth, dayText: birthDayText)
+        PartialDateBuilder.from(yearText: birthYearText, month: birthMonth, dayText: birthDayText)
     }
 
     /// The death date from whatever the user entered — only when deceased. Like
@@ -57,18 +67,15 @@ final class AddPersonViewModel {
     /// `isDeceased` flag still records the status).
     var deathDate: PartialDate? {
         guard isDeceased else { return nil }
-        return Self.partialDate(yearText: deathYearText, month: deathMonth, dayText: deathDayText)
+        return PartialDateBuilder.from(yearText: deathYearText, month: deathMonth, dayText: deathDayText)
     }
 
-    /// Builds a PartialDate from a year field, an optional month, and a day field.
-    /// A day is only kept alongside a valid month (matching PartialDate). Returns nil
-    /// only when neither a year nor a month is known.
-    private static func partialDate(yearText: String, month: Int?, dayText: String) -> PartialDate? {
-        let year = Int(yearText).flatMap { $0 > 0 ? $0 : nil }
-        let validMonth = month.flatMap { (1...12).contains($0) ? $0 : nil }
-        let day = validMonth == nil ? nil : Int(dayText).flatMap { (1...31).contains($0) ? $0 : nil }
-        guard year != nil || validMonth != nil else { return nil }
-        return PartialDate(year: year, month: validMonth, day: day)
+    /// The marriage / anniversary date from whatever the user entered — the same
+    /// year-less-safe rule as birth and death, so a known anniversary day with an
+    /// unknown year survives. Nil when nothing at all is entered. Only meaningful in
+    /// the `.partner` context (the only place it's captured or applied).
+    var marriageDate: PartialDate? {
+        PartialDateBuilder.from(yearText: marriageYearText, month: marriageMonth, dayText: marriageDayText)
     }
 
     /// The name as it will be saved, for the review card.
@@ -162,6 +169,8 @@ final class AddPersonViewModel {
                 deathDate: deathDate,
                 // Only co-parent when the question actually applied AND the user said yes.
                 coParentExistingChildren: coParentQuestionApplies && coParentWithExistingChildren,
+                marriageDate: marriageDate,
+                isUnmarriedPartner: isUnmarriedPartner,
                 in: modelContext
             )
         case .child:

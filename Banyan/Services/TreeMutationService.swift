@@ -64,6 +64,8 @@ final class TreeMutationService: TreeMutationServiceProtocol {
     /// new union; when `coParentExistingChildren` is true and the anchor has a
     /// single one-parent union with children, the new partner joins that union
     /// instead so they co-parent its existing children (the "second parent" case).
+    /// When a `marriageDate` is given, the union it lands on records it as its
+    /// `startDate` and is marked `.married` — the anniversary shown on the person sheet.
     @discardableResult
     func addPartner(
         to anchorPerson: Person,
@@ -74,6 +76,8 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         isDeceased: Bool,
         deathDate: PartialDate?,
         coParentExistingChildren: Bool = false,
+        marriageDate: PartialDate? = nil,
+        isUnmarriedPartner: Bool = false,
         in context: ModelContext
     ) throws -> Person {
         let newPartner = makePerson(
@@ -94,17 +98,48 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             ? GraphService().coParentableUnion(for: anchorPerson)
             : nil
 
+        let union: Union
         if let coParentUnion {
             makeLink(person: newPartner, union: coParentUnion, role: .partner, in: context)
+            union = coParentUnion
         } else {
-            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
-            context.insert(union)
-            makeLink(person: anchorPerson, union: union, role: .partner, in: context)
-            makeLink(person: newPartner, union: union, role: .partner, in: context)
+            let newUnion = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(newUnion)
+            makeLink(person: anchorPerson, union: newUnion, role: .partner, in: context)
+            makeLink(person: newPartner, union: newUnion, role: .partner, in: context)
+            union = newUnion
+        }
+
+        // Record the couple's status. An explicit "not married" marks the union
+        // `.partnered`; otherwise a supplied anniversary marks it a `.married` with a
+        // date. With neither, the type is left as-is (unknown/co-parented) — the
+        // "assumed spouse, date unknown" case that still reads as Husband/Wife.
+        if isUnmarriedPartner {
+            union.type = .partnered
+            union.startDate = nil   // a partnership has no anniversary (invariant with setUnionRelationship)
+        } else if let marriageDate {
+            union.startDate = marriageDate
+            union.type = .married
         }
 
         try context.save()
         return newPartner
+    }
+
+    /// Sets a partner union's relationship type and, for a marriage, its anniversary
+    /// date — the entry point for correcting or updating a couple's status after the
+    /// fact (e.g. partners who later marry). Switching to `.partnered` clears any
+    /// wedding date, since a partnership has no anniversary; a `.married` union keeps
+    /// whatever `startDate` is passed (nil = married, date unknown).
+    func setUnionRelationship(
+        _ type: UnionType,
+        startDate: PartialDate?,
+        on union: Union,
+        in context: ModelContext
+    ) throws {
+        union.type = type
+        union.startDate = (type == .married) ? startDate : nil
+        try context.save()
     }
 
     /// Creates a person and links them as a child of `anchorPerson`, joining the

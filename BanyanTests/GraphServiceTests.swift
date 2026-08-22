@@ -277,4 +277,41 @@ struct GraphServiceTests {
         // Then it's ambiguous — never assume which union to co-parent
         #expect(service.coParentableUnion(for: dad) == nil)
     }
+
+    @Test func partnerUnionsReturnsOnlyUnionsWherePersonIsAPartner() throws {
+        // Given a person who is a partner in one union and a child in another
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let me = builder.makePerson(firstName: "Me")
+        let spouse = builder.makePerson(firstName: "Spouse")
+        let parent = builder.makePerson(firstName: "Parent")
+        let marriage = builder.makeUnion()
+        let parentUnion = builder.makeUnion()
+        builder.link(person: me, to: marriage, role: .partner)
+        builder.link(person: spouse, to: marriage, role: .partner)
+        builder.link(person: parent, to: parentUnion, role: .partner)
+        builder.link(person: me, to: parentUnion, role: .child)
+
+        // Then only the marriage union comes back (the parent union, where Me is a child, is excluded)
+        let unions = service.partnerUnions(of: me)
+        #expect(unions.count == 1)
+        #expect(unions.first?.id == marriage.id)
+    }
+
+    @Test func partnerUnionFindsTheSharedUnionBetweenTwoPartners() throws {
+        // Given two people who are partners in one union
+        let builder = try TestTreeBuilder()
+        let service = GraphService()
+        let me = builder.makePerson(firstName: "Me")
+        let spouse = builder.makePerson(firstName: "Spouse")
+        let stranger = builder.makePerson(firstName: "Stranger")
+        let union = builder.makeUnion(type: .partnered)
+        builder.link(person: me, to: union, role: .partner)
+        builder.link(person: spouse, to: union, role: .partner)
+
+        // Then their shared union is found (with its type), and there is none with an unrelated person
+        #expect(service.partnerUnion(of: me, with: spouse)?.id == union.id)
+        #expect(service.partnerUnion(of: me, with: spouse)?.type == .partnered)
+        #expect(service.partnerUnion(of: me, with: stranger) == nil)
+    }
 }
