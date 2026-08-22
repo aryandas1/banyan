@@ -51,12 +51,17 @@ struct MarriageDateEditView: View {
                         TextField("Year, e.g. 1972", text: $vm.marriageYearText)
                             .keyboardType(.numberPad)
                             .focused($yearFieldFocused)
+                    }
 
-                        // The month/day wheels carry their own bordered surface, so
-                        // drop the Form row's inset/background and let them span.
+                    // A separate section for the wheels gives a clean gap from the year
+                    // field. The wheels carry their own bordered surface, so drop the
+                    // Form row's background and let them span.
+                    Section {
                         MonthDayWheels(month: $selectedMonth, day: $selectedDay)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
                             .listRowBackground(Color.clear)
+                    } header: {
+                        Text("Month & day (optional)")
                     }
 
                     if vm.hasExistingDate {

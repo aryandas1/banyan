@@ -37,7 +37,12 @@ struct AddPersonNameStepView: View {
                 .onSubmit { if vm.canContinueFromName { onContinue() } }
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // The big Continue button, kept just above the keyboard while typing.
+        .keyboardAwareBottomBar {
             Button {
                 onContinue()
             } label: {
@@ -45,24 +50,9 @@ struct AddPersonNameStepView: View {
             }
             .buttonStyle(PrimaryFilledButtonStyle())
             .disabled(!vm.canContinueFromName)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // Don't let the layout jump up when the keyboard appears (that avoidance is the
-        // flaky bit) — the fields sit near the top and stay visible regardless, and the
-        // accessory-bar Continue below is the reliable above-keyboard control.
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        // The letter keyboard sits over the bottom Continue while typing, so give an
-        // always-reachable Continue in the keyboard's accessory bar (the reliable
-        // above-the-keyboard surface — safeAreaInset avoidance proved flaky on device).
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Continue") { onContinue() }
-                    .fontWeight(.semibold)
-                    .disabled(!vm.canContinueFromName)
-            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
         .onAppear {
             isFirstNameFocused = true

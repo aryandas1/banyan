@@ -60,7 +60,12 @@ struct AddPersonMarriageStepView: View {
             .buttonStyle(.plain)
 
             Spacer()
-
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // The big Continue button, kept just above the keyboard while typing the year.
+        .keyboardAwareBottomBar {
             Button {
                 // Proceeding as a married couple (a date makes it an anniversary; no
                 // date leaves it an assumed spouse). Clear any earlier "partners" pick.
@@ -70,24 +75,15 @@ struct AddPersonMarriageStepView: View {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(BanyanTheme.Color.background)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // Keep the layout steady when the keyboard appears (its avoidance is flaky);
-        // Done reveals the wheels, Continue advances — both live in the accessory bar.
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar {
-            // The numberPad covers the wheels and the bottom Continue, so the accessory
-            // bar carries both: Done to reveal the wheels, Continue to advance directly.
+            // The numberPad covers the wheels, so a Done to dismiss it and reveal them.
             ToolbarItemGroup(placement: .keyboard) {
-                Button("Done") { yearFieldFocused = false }
                 Spacer()
-                Button("Continue") {
-                    vm.isUnmarriedPartner = false
-                    onContinue()
-                }
-                .fontWeight(.semibold)
+                Button("Done") { yearFieldFocused = false }
             }
         }
         .onAppear {
