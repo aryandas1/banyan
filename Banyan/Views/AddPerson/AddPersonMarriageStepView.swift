@@ -60,12 +60,7 @@ struct AddPersonMarriageStepView: View {
             .buttonStyle(.plain)
 
             Spacer()
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // The big Continue button, kept just above the keyboard while typing the year.
-        .keyboardAwareBottomBar {
+
             Button {
                 // Proceeding as a married couple (a date makes it an anniversary; no
                 // date leaves it an assumed spouse). Clear any earlier "partners" pick.
@@ -75,12 +70,14 @@ struct AddPersonMarriageStepView: View {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(BanyanTheme.Color.background)
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Hold the layout steady when the numberPad appears; the year field stays
+        // visible, and Done dismisses the pad to reveal the wheels + Continue.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar {
-            // The numberPad covers the wheels, so a Done to dismiss it and reveal them.
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { yearFieldFocused = false }

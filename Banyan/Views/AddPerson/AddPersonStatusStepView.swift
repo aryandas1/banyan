@@ -41,24 +41,21 @@ struct AddPersonStatusStepView: View {
             }
 
             Spacer()
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(BanyanTheme.Color.background.ignoresSafeArea())
-        // The big Continue button, kept just above the keyboard while typing the year.
-        .keyboardAwareBottomBar {
+
             Button {
                 onContinue()
             } label: {
                 Text("Continue")
             }
             .buttonStyle(PrimaryFilledButtonStyle())
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(BanyanTheme.Color.background)
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BanyanTheme.Color.background.ignoresSafeArea())
+        // Hold the layout steady when the numberPad appears; the year field stays
+        // visible, and Done dismisses the pad to reveal the wheels + Continue.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .toolbar {
-            // The numberPad covers the wheels, so a Done to dismiss it and reveal them.
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { deathYearFocused = false }
