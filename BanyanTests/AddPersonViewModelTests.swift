@@ -271,6 +271,66 @@ struct AddPersonViewModelTests {
         #expect(GraphService().parents(of: me).first?.firstName == "Dad")
     }
 
+    // MARK: - Marriage / anniversary date (partner context)
+
+    @Test func marriageDateBuiltFromFields() throws {
+        // Given the add-partner form with a full anniversary entered
+        let builder = try TestTreeBuilder()
+        let anchor = builder.makePerson(firstName: "Aryan")
+        let vm = AddPersonViewModel(
+            context: .partner(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.marriageYearText = "1972"
+        vm.marriageMonth = 2
+        vm.marriageDayText = "3"
+
+        // Then all three components are carried
+        #expect(vm.marriageDate?.year == 1972)
+        #expect(vm.marriageDate?.month == 2)
+        #expect(vm.marriageDate?.day == 3)
+    }
+
+    @Test func marriageDateKeepsYearlessDate() throws {
+        // Given only a day + month (a remembered anniversary with a hazy year)
+        let builder = try TestTreeBuilder()
+        let anchor = builder.makePerson(firstName: "Aryan")
+        let vm = AddPersonViewModel(
+            context: .partner(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.marriageMonth = 5
+        vm.marriageDayText = "12"
+
+        // Then the day/month survive with no year (not dropped)
+        #expect(vm.marriageDate?.year == nil)
+        #expect(vm.marriageDate?.month == 5)
+        #expect(vm.marriageDate?.day == 12)
+    }
+
+    @Test func savePartnerAppliesMarriageDateToTheUnion() async throws {
+        // Given the add-partner form with an anniversary entered
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let anchor = builder.makePerson(firstName: "Anchor", treeId: treeId)
+        let vm = AddPersonViewModel(
+            context: .partner(of: anchor),
+            mutationService: TreeMutationService()
+        )
+        vm.firstName = "Priya"
+        vm.marriageYearText = "1972"
+        vm.marriageMonth = 2
+        vm.marriageDayText = "3"
+
+        // When saved
+        try await vm.save(in: builder.context, sync: SpySyncScheduler())
+
+        // Then the couple's union carries the anniversary and is marked married
+        let union = anchor.links.compactMap(\.union).first
+        #expect(union?.startDate?.year == 1972)
+        #expect(union?.type == .married)
+    }
+
     @Test func deathDateParsedWhenDeceased() throws {
         // Given a deceased person with a valid death year
         let builder = try TestTreeBuilder()

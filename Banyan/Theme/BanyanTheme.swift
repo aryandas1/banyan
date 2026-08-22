@@ -41,6 +41,9 @@ enum BanyanTheme {
         /// Calm amber — a save that didn't go through but will retry. Deliberately
         /// not an alarming red, for older, non-technical users.
         static let warning        = SwiftUI.Color(hex: "#B45309")
+        /// Deep rose — a marriage / anniversary. Warm, distinct from the birth green
+        /// and death amber on the person-sheet Dates card.
+        static let marriage       = SwiftUI.Color(hex: "#9D174D")
     }
 
     // MARK: - Avatar palette

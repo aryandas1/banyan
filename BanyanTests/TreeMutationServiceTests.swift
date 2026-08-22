@@ -455,4 +455,102 @@ struct TreeMutationServiceTests {
         #expect(parents.count == 1)
         #expect(parents.first?.id == mother.id)
     }
+
+    // MARK: - Marriage / anniversary date
+
+    @Test func addPartnerWithMarriageDateRecordsItAndMarksMarried() throws {
+        // Given a person with no unions
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let focal = builder.makePerson(firstName: "Focal", treeId: treeId)
+
+        // When a partner is added with an anniversary date
+        try service.addPartner(
+            to: focal, firstName: "Priya", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            marriageDate: PartialDate(year: 1972, month: 2, day: 3),
+            in: builder.context
+        )
+
+        // Then their shared union carries the date and is marked married
+        let union = focal.links.compactMap(\.union).first { $0.links.contains { $0.role == .partner && $0.person?.firstName == "Priya" } }
+        #expect(union?.type == .married)
+        #expect(union?.startDate?.year == 1972)
+        #expect(union?.startDate?.month == 2)
+        #expect(union?.startDate?.day == 3)
+    }
+
+    @Test func addPartnerWithoutMarriageDateLeavesUnionUnmarked() throws {
+        // Given a person with no unions
+        let builder = try TestTreeBuilder()
+        let focal = builder.makePerson(firstName: "Focal")
+
+        // When a partner is added with no anniversary date
+        try service.addPartner(
+            to: focal, firstName: "Sam", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            in: builder.context
+        )
+
+        // Then the union stays date-less and its type is untouched (unknown)
+        let union = focal.links.compactMap(\.union).first
+        #expect(union?.startDate == nil)
+        #expect(union?.type == .unknown)
+    }
+
+    @Test func addPartnerKeepsYearlessMarriageDate() throws {
+        // Given a person with no unions
+        let builder = try TestTreeBuilder()
+        let focal = builder.makePerson(firstName: "Focal")
+
+        // When a partner is added with a year-less anniversary (day + month only)
+        try service.addPartner(
+            to: focal, firstName: "Lee", lastName: "",
+            birthDate: nil, isDeceased: false, deathDate: nil,
+            marriageDate: PartialDate(month: 5, day: 12),
+            in: builder.context
+        )
+
+        // Then the day/month survive with no year
+        let union = focal.links.compactMap(\.union).first
+        #expect(union?.startDate?.year == nil)
+        #expect(union?.startDate?.month == 5)
+        #expect(union?.startDate?.day == 12)
+    }
+
+    @Test func setMarriageDateOnExistingUnionRecordsItAndMarksMarried() throws {
+        // Given an existing, date-less partner union
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let a = builder.makePerson(firstName: "A", treeId: treeId)
+        let b = builder.makePerson(firstName: "B", treeId: treeId)
+        let union = builder.makeUnion(type: .unknown, treeId: treeId)
+        builder.link(person: a, to: union, role: .partner)
+        builder.link(person: b, to: union, role: .partner)
+
+        // When an anniversary date is set on it
+        try service.setMarriageDate(PartialDate(year: 1990, month: 6, day: 21), on: union, in: builder.context)
+
+        // Then the union carries the date and is marked married
+        #expect(union.startDate?.year == 1990)
+        #expect(union.type == .married)
+    }
+
+    @Test func setMarriageDateNilClearsTheDate() throws {
+        // Given a union with an anniversary date already set
+        let builder = try TestTreeBuilder()
+        let treeId = UUID()
+        let a = builder.makePerson(firstName: "A", treeId: treeId)
+        let b = builder.makePerson(firstName: "B", treeId: treeId)
+        let union = builder.makeUnion(type: .married, treeId: treeId)
+        union.startDate = PartialDate(year: 1990)
+        builder.link(person: a, to: union, role: .partner)
+        builder.link(person: b, to: union, role: .partner)
+
+        // When the date is cleared
+        try service.setMarriageDate(nil, on: union, in: builder.context)
+
+        // Then the date is gone (the type is deliberately left as-is)
+        #expect(union.startDate == nil)
+    }
 }

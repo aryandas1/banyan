@@ -64,6 +64,8 @@ final class TreeMutationService: TreeMutationServiceProtocol {
     /// new union; when `coParentExistingChildren` is true and the anchor has a
     /// single one-parent union with children, the new partner joins that union
     /// instead so they co-parent its existing children (the "second parent" case).
+    /// When a `marriageDate` is given, the union it lands on records it as its
+    /// `startDate` and is marked `.married` — the anniversary shown on the person sheet.
     @discardableResult
     func addPartner(
         to anchorPerson: Person,
@@ -74,6 +76,7 @@ final class TreeMutationService: TreeMutationServiceProtocol {
         isDeceased: Bool,
         deathDate: PartialDate?,
         coParentExistingChildren: Bool = false,
+        marriageDate: PartialDate? = nil,
         in context: ModelContext
     ) throws -> Person {
         let newPartner = makePerson(
@@ -94,17 +97,38 @@ final class TreeMutationService: TreeMutationServiceProtocol {
             ? GraphService().coParentableUnion(for: anchorPerson)
             : nil
 
+        let union: Union
         if let coParentUnion {
             makeLink(person: newPartner, union: coParentUnion, role: .partner, in: context)
+            union = coParentUnion
         } else {
-            let union = Union(treeId: anchorPerson.treeId, type: .unknown)
-            context.insert(union)
-            makeLink(person: anchorPerson, union: union, role: .partner, in: context)
-            makeLink(person: newPartner, union: union, role: .partner, in: context)
+            let newUnion = Union(treeId: anchorPerson.treeId, type: .unknown)
+            context.insert(newUnion)
+            makeLink(person: anchorPerson, union: newUnion, role: .partner, in: context)
+            makeLink(person: newPartner, union: newUnion, role: .partner, in: context)
+            union = newUnion
+        }
+
+        // A supplied anniversary marks the union as a marriage. When none is given
+        // the union's type is left as-is (unknown/co-parented) — no date, no claim.
+        if let marriageDate {
+            union.startDate = marriageDate
+            union.type = .married
         }
 
         try context.save()
         return newPartner
+    }
+
+    /// Sets (or clears, when `date` is nil) the anniversary date on an existing
+    /// union — the entry point for recording a marriage date after the fact. A
+    /// non-nil date also marks the union `.married`; clearing leaves the type as-is.
+    func setMarriageDate(_ date: PartialDate?, on union: Union, in context: ModelContext) throws {
+        union.startDate = date
+        if date != nil {
+            union.type = .married
+        }
+        try context.save()
     }
 
     /// Creates a person and links them as a child of `anchorPerson`, joining the

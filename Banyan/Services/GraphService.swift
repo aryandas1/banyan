@@ -26,6 +26,12 @@ final class GraphService: GraphServiceProtocol {
         return deduplicated(result)
     }
 
+    /// The unions where this person is a partner — each a distinct relationship that
+    /// can carry its own anniversary. Ordered as the person's links present them.
+    func partnerUnions(of person: Person) -> [Union] {
+        unions(for: person, role: .partner)
+    }
+
     /// The parents of a person — the partner(s) of the union where this person is a child.
     func parents(of person: Person) -> [Person] {
         let result = unions(for: person, role: .child)
